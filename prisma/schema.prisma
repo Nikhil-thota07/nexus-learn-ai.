@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  passwordHash String
+  name         String
+  avatar       String?
+  age          Int?
+  dob          String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  profile      StudentProfile?
+  knowledge    KnowledgeState[]
+  misconceptions Misconception[]
+  attempts     AssessmentAttempt[]
+}
+
+model StudentProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  educationLevel     String?  // High School, Undergraduate, B.Tech, Graduate
+  qualification      String?  // 12th, B.Tech, B.Sc, etc.
+  schoolCollege      String?
+  university         String?
+  branch             String?  // CSE, ECE, Mechanical, etc.
+  year               String?  // 1st Year, 2nd Year, etc.
+  semester           String?  // Semester 3, etc.
+  regulation         String?  // R20, R23, CBSE, etc.
+  subjects           String?  // Comma separated or JSON string
+  careerInterests    String?  // AI Engineer, Full Stack, Gate, etc.
+  targetExam         String?  // JEE Main, JEE Advanced, GATE, Placement, etc.
+  preferredLanguage  String?  @default("English")
+  dailyStudyMinutes  Int?     @default(90)
+  preferredStyle     String?  @default("visual") // visual, conceptual, hands-on
+  difficulty         String?  @default("adaptive") // beginner, intermediate, advanced, adaptive
+  videoPreference    String?  @default("concise") // deep-dive, concise, animated
+  updatedAt          DateTime @updatedAt
+}
+
+model Concept {
+  id                 String          @id
+  track              String          // e.g., 'python', 'jee-physics', 'btech-os'
+  module             String          // e.g., 'Functions', 'Mechanics', 'Memory Management'
+  slug               String          @unique
+  title              String
+  description        String
+  order              Int             @default(0)
+  difficulty         Int             @default(2) // 1 to 5
+  masteryThreshold   Float           @default(75.0)
+  prerequisiteIds    String          // JSON array of prerequisite concept ids
+  dependentIds       String          // JSON array of dependent concept ids
+  knowledgeStates    KnowledgeState[]
+  misconceptions     Misconception[]
+  attempts           AssessmentAttempt[]
+}
+
+model KnowledgeState {
+  id                 String    @id @default(cuid())
+  studentId          String
+  conceptId          String
+  masteryScore       Float     @default(0.0) // 0 to 100
+  accuracy           Float     @default(0.0) // 0 to 100
+  confidence         Float     @default(50.0) // 0 to 100
+  attempts           Int       @default(0)
+  correctAttempts    Int       @default(0)
+  incorrectAttempts  Int       @default(0)
+  averageTimeSeconds Float     @default(0.0)
+  difficulty         Int       @default(2)
+  misconceptionRisk  Float     @default(0.0) // 0 to 1.0
+  improvementRate    Float     @default(0.0)
+  status             String    @default("NOT_STARTED") // NOT_STARTED, LEARNING, NEEDS_REVIEW, MASTERED
+  lastAssessedAt     DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user               User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  concept            Concept   @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, conceptId])
+  @@index([studentId])
+  @@index([conceptId])
+}
+
+model Misconception {
+  id                 String    @id @default(cuid())
+  studentId          String
+  conceptId          String
+  title              String
+  description        String
+  evidence           String
+  confidence         Float     @default(80.0)
+  status             String    @default("ACTIVE") // ACTIVE, RESOLVED, MONITORING
+  firstDetected      DateTime  @default(now())
+  lastDetected       DateTime  @default(now())
+  resolvedAt         DateTime?
+  diagnosticQuestion String?
+  diagnosticOptions  String?   // JSON array of choices
+  correctOption      Int?
+  explanation        String?
+
+  user               User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  concept            Concept   @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([conceptId])
+}
+
+model AssessmentAttempt {
+  id                    String   @id @default(cuid())
+  studentId             String
+  conceptId             String
+  questionId            String
+  questionText          String
+  selectedAnswer        String
+  correctAnswer         String
+  isCorrect             Boolean
+  confidenceScore       Float    @default(50.0)
+  timeSpentSeconds      Int      @default(30)
+  detectedMisconception String?
+  createdAt             DateTime @default(now())
+
+  user                  User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  concept               Concept  @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([conceptId])
+}
+
+model YouTubeCache {
+  id          String   @id @default(cuid())
+  queryKey    String   @unique
+  videosJson  String
+  cachedAt    DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([queryKey])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
