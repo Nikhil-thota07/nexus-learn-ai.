@@ -15,6 +15,7 @@ import {
   BarChart3,
   BookOpen,
   Cpu,
+  Award,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -70,6 +71,7 @@ export default function Navbar() {
     { href: '/syllabus', label: 'Syllabus AI', icon: BookOpen },
     { href: '/engineering', label: 'Engineering', icon: Cpu },
     { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+    { href: '/achievements', label: 'Achievements', icon: Award },
     { href: '/career', label: 'Career Paths', icon: Sparkles },
   ];
 
