@@ -19,6 +19,7 @@ export interface ImportantQuestion {
   expectedAnswerStructure: string[];
   sampleSolution?: string;
   studentAttempted?: boolean;
+  sourceType?: 'AI_GENERATED' | 'VERIFIED_PAST_PAPER' | 'UPLOADED_PDF';
 }
 
 export interface TopicQuestionsGroup {

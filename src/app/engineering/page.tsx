@@ -247,7 +247,34 @@ export default function EngineeringPage() {
       if (data.syllabus) {
         setSyllabus(data.syllabus);
         if (data.syllabus.subjects && data.syllabus.subjects.length > 0) {
-          handleSelectSubject(data.syllabus.subjects[0]);
+          const firstSubj = data.syllabus.subjects[0];
+          // If upload returned pre-generated questions, inject them directly
+          if (data.importantQuestions) {
+            const subjKey = firstSubj.code || firstSubj.name;
+            const rawQs: any[] = data.importantQuestions[subjKey] || Object.values(data.importantQuestions)[0] || [];
+            if (rawQs.length > 0) {
+              // Group by unit number
+              const grouped: Record<number, any> = {};
+              rawQs.forEach((q: any) => {
+                const uNum = q.unitNumber ?? 1;
+                if (!grouped[uNum]) {
+                  grouped[uNum] = {
+                    unitNumber: uNum,
+                    topic: q.unitTitle || q.topic || `Unit ${uNum}`,
+                    questions: [],
+                  };
+                }
+                grouped[uNum].questions.push({
+                  ...q,
+                  tier: q.importance || 'Important',
+                });
+              });
+              const groups = Object.values(grouped).sort((a, b) => a.unitNumber - b.unitNumber);
+              setSubjectQuestions(groups);
+              setActiveTopicIndex(0);
+            }
+          }
+          handleSelectSubject(firstSubj);
         }
       }
       setUploading(false);
@@ -773,6 +800,16 @@ export default function EngineeringPage() {
                           <span className="text-[10px] font-semibold text-subtle">
                             Type: {q.questionType}
                           </span>
+                          {q.sourceType === 'AI_GENERATED' && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200">
+                              ✦ AI Generated
+                            </span>
+                          )}
+                          {q.sourceType === 'VERIFIED_PAST_PAPER' && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              ✓ Verified Past Paper
+                            </span>
+                          )}
                         </div>
 
                         <button

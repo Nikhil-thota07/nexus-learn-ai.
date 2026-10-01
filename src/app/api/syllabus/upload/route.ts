@@ -491,6 +491,89 @@ Rules:
       0
     );
 
+
+    // ── Generate topic-wise important questions from the extracted syllabus ──
+    // These are AI_GENERATED and clearly labeled as such (not university exam papers)
+    const importantQuestions: Record<string, any[]> = {};
+    for (const parsedSyl of allParsedSyllabi) {
+      for (const subj of parsedSyl.subjects) {
+        const subjKey = subj.code || subj.name;
+        if (!importantQuestions[subjKey]) importantQuestions[subjKey] = [];
+        for (const unit of subj.units) {
+          const topics: string[] = unit.topics || [];
+          topics.forEach((topic, tIdx) => {
+            importantQuestions[subjKey].push(
+              {
+                id: `q-${subjKey}-u${unit.unitNumber}-${tIdx}-1`,
+                subject: subj.name,
+                subjectCode: subj.code,
+                unitNumber: unit.unitNumber,
+                unitTitle: unit.title,
+                topic,
+                question: `Explain the concept of "${topic}" with a suitable example.`,
+                difficulty: 'Medium',
+                importance: 'Important',
+                sourceType: 'AI_GENERATED',
+                questionType: 'Long Answer',
+                marks: 10,
+                whyItMatters: `Core concept from Unit ${unit.unitNumber}: ${unit.title}`,
+                expectedAnswerStructure: [
+                  `Define ${topic} clearly`,
+                  'Provide a worked example',
+                  'State real-world applications',
+                ],
+              },
+              {
+                id: `q-${subjKey}-u${unit.unitNumber}-${tIdx}-2`,
+                subject: subj.name,
+                subjectCode: subj.code,
+                unitNumber: unit.unitNumber,
+                unitTitle: unit.title,
+                topic,
+                question: `Differentiate the key aspects of "${topic}" and explain its practical significance.`,
+                difficulty: 'Hard',
+                importance: 'Very Important',
+                sourceType: 'AI_GENERATED',
+                questionType: 'Short Answer',
+                marks: 5,
+                whyItMatters: `Frequently tested comparative question from ${unit.title}`,
+                expectedAnswerStructure: [
+                  `List 3+ distinguishing characteristics`,
+                  'Draw comparison table if applicable',
+                  'Cite one industry use-case',
+                ],
+              }
+            );
+          });
+          // Also generate from concepts if present
+          const conceptObjs: { id: string; title: string; description: string }[] = (unit.concepts as any[]) || [];
+          const conceptNames: string[] = conceptObjs.map((c) => (typeof c === 'string' ? c : c.title)).filter(Boolean);
+          conceptNames.slice(0, 3).forEach((concept, cIdx) => {
+            importantQuestions[subjKey].push({
+              id: `q-${subjKey}-u${unit.unitNumber}-c${cIdx}`,
+              subject: subj.name,
+              subjectCode: subj.code,
+              unitNumber: unit.unitNumber,
+              unitTitle: unit.title,
+              topic: concept,
+              question: `Describe the principle behind "${concept}" and how it is applied in ${subj.name}.`,
+              difficulty: 'Hard',
+              importance: 'Very Important',
+              sourceType: 'AI_GENERATED',
+              questionType: 'Long Answer',
+              marks: 10,
+              whyItMatters: `Key concept within ${unit.title} — high exam frequency`,
+              expectedAnswerStructure: [
+                `State the principle or theorem`,
+                'Derive or prove if applicable',
+                'Give numerical/code example',
+              ],
+            });
+          });
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Syllabus successfully uploaded, verified, and integrated into your curriculum.',
@@ -505,6 +588,8 @@ Rules:
       topicsCount: totalTopics,
       conceptsCount: totalConcepts,
       syllabus: structuredSyllabus,
+      allSemesters: allParsedSyllabi,
+      importantQuestions,
     });
   } catch (err: any) {
     console.error('Syllabus upload error:', err);
