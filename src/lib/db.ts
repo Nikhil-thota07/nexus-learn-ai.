@@ -124,58 +124,47 @@ interface DatabaseSchema {
   youtubeCache: YouTubeCacheRecord[];
 }
 
-let memoryStore: DatabaseSchema | null = null;
+let memoryStore: DatabaseSchema = JSON.parse(JSON.stringify(initialStoreData));
 
-function getStoragePaths(): { dir: string; file: string } {
-  // If running in Vercel or Serverless environment, process.cwd() is read-only (/var/task)
-  // os.tmpdir() (/tmp) is always writable on serverless platforms.
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    const tmpDir = path.join(os.tmpdir(), 'nexus_learn_ai');
-    return { dir: tmpDir, file: path.join(tmpDir, 'nexus_store.json') };
-  }
-  const localDir = path.join(process.cwd(), '.data');
-  return { dir: localDir, file: path.join(localDir, 'nexus_store.json') };
+function isServerless(): boolean {
+  if (typeof process === 'undefined') return false;
+  const cwd = process.cwd ? process.cwd() : '';
+  return Boolean(
+    process.env.VERCEL ||
+    process.env.VERCEL_ENV ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.LAMBDA_TASK_ROOT ||
+    cwd.includes('task') ||
+    cwd.includes('vercel') ||
+    cwd.startsWith('/var') ||
+    process.env.NODE_ENV === 'production'
+  );
 }
 
 function ensureStorage(): DatabaseSchema {
-  if (memoryStore) {
+  if (isServerless()) {
     return memoryStore;
   }
 
-  const { dir, file } = getStoragePaths();
-
+  // Local development on developer workstation:
   try {
-    if (!fs.existsSync(dir)) {
-      try {
-        fs.mkdirSync(dir, { recursive: true });
-      } catch (err) {
-        // Ignored if directory cannot be created
-      }
+    const localDir = path.join(process.cwd(), '.data');
+    const localFile = path.join(localDir, 'nexus_store.json');
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
     }
-
-    if (fs.existsSync(file)) {
-      const raw = fs.readFileSync(file, 'utf-8');
+    if (fs.existsSync(localFile)) {
+      const raw = fs.readFileSync(localFile, 'utf-8');
       const parsed: DatabaseSchema = JSON.parse(raw);
       if (parsed.users && parsed.users.length > 0) {
         memoryStore = parsed;
         return memoryStore;
       }
+    } else {
+      fs.writeFileSync(localFile, JSON.stringify(memoryStore, null, 2), 'utf-8');
     }
   } catch (err) {
-    // If reading from disk fails, continue to initial store fallback
-  }
-
-  // Fallback to bundled initial store data
-  const initialData: DatabaseSchema = JSON.parse(JSON.stringify(initialStoreData));
-  memoryStore = initialData;
-
-  // Try to write initial copy to writable disk if possible
-  try {
-    if (fs.existsSync(dir)) {
-      fs.writeFileSync(file, JSON.stringify(initialData, null, 2), 'utf-8');
-    }
-  } catch (err) {
-    // Ignored in read-only environment
+    // If local file I/O has any issues, memoryStore is ready
   }
 
   return memoryStore;
@@ -183,17 +172,19 @@ function ensureStorage(): DatabaseSchema {
 
 function saveStorage(data: DatabaseSchema) {
   memoryStore = data;
-  const { dir, file } = getStoragePaths();
-  try {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+  if (!isServerless()) {
+    try {
+      const localDir = path.join(process.cwd(), '.data');
+      if (!fs.existsSync(localDir)) {
+        fs.mkdirSync(localDir, { recursive: true });
+      }
+      const localFile = path.join(localDir, 'nexus_store.json');
+      const tempFile = `${localFile}.tmp`;
+      fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
+      fs.renameSync(tempFile, localFile);
+    } catch (err) {
+      // Ignored
     }
-    const tempFile = `${file}.tmp`;
-    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tempFile, file);
-  } catch (err) {
-    // Non-fatal on serverless: state is preserved in memoryStore
-    console.warn('Storage disk write bypassed, preserved in memory:', (err as any)?.message);
   }
 }
 
