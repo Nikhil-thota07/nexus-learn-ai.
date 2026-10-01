@@ -40,6 +40,16 @@ export async function PUT(req: NextRequest) {
       });
     }
 
+    // Dynamically normalize college if provided
+    if (profileData.schoolCollege) {
+      const { resolveCollege } = await import('@/lib/college/collegeService');
+      const resolved = resolveCollege(profileData.schoolCollege);
+      profileData.schoolCollege = resolved.college.collegeName;
+      if (resolved.college.domain) {
+        profileData.collegeDomain = resolved.college.domain;
+      }
+    }
+
     // Update student profile
     const updatedProfile = await db.studentProfile.upsert({
       where: { userId: session.id },

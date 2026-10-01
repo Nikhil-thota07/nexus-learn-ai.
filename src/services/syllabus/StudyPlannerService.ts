@@ -35,6 +35,36 @@ export interface WeekPlan {
   weeklyMilestone: string;
 }
 
+export interface StudyCapacity {
+  durationWeeks: number;
+  durationDays: number;
+  dailyHours: number;
+  availableHours: number;
+}
+
+/**
+ * Single source of truth calculation for study capacity.
+ * totalDays = durationInWeeks * 7
+ * totalAvailableHours = dailyStudyHours * totalDays
+ * Supports 1, 2, 3, 4, 6, 8, 12 weeks and decimal hours (e.g. 1.5, 2.5).
+ */
+export function calculateStudyCapacity(params: {
+  dailyHours: number;
+  durationWeeks: number;
+}): StudyCapacity {
+  const durationWeeks = Number(params.durationWeeks) || 2;
+  const durationDays = durationWeeks * 7;
+  const dailyHours = Number(params.dailyHours) || 2;
+  const availableHours = Number((dailyHours * durationDays).toFixed(1));
+
+  return {
+    durationWeeks,
+    durationDays,
+    dailyHours,
+    availableHours,
+  };
+}
+
 export interface StructuredStudyPlan {
   subject: {
     id: string;
@@ -56,6 +86,8 @@ export interface StructuredStudyPlan {
   metrics: {
     totalAvailableHours: number;
     requiredEstimatedHours: number;
+    gapHours: number;
+    remainingCapacityHours: number;
     coveragePercentage: number;
     estimatedReadiness: number;
     recommendedDailyWorkload: number;
@@ -76,7 +108,7 @@ export class StudyPlannerService {
     subjectQuery: string;
     target: string; // e.g. "9 CGPA"
     weeks: number; // e.g. 2
-    dailyStudyHours?: number; // e.g. 3
+    dailyStudyHours?: number; // e.g. 2
     context: ComprehensiveStudentContext;
   }): StructuredStudyPlan {
     const { subjectQuery, target, weeks = 2, dailyStudyHours, context } = params;
@@ -92,9 +124,17 @@ export class StudyPlannerService {
       units: [],
     };
 
-    const durationDays = weeks * 7;
-    const dailyHours = dailyStudyHours || (context.availableTime ? Math.round(context.availableTime / 60) : 3);
-    const totalAvailableHours = durationDays * dailyHours;
+    // Single source of truth calculation
+    const inputDaily = dailyStudyHours !== undefined && dailyStudyHours !== null
+      ? Number(dailyStudyHours)
+      : (context.availableTime ? Number((context.availableTime / 60).toFixed(1)) : 2);
+
+    const capacity = calculateStudyCapacity({
+      dailyHours: inputDaily,
+      durationWeeks: Number(weeks) || 2,
+    });
+
+    const { durationDays, dailyHours, availableHours: totalAvailableHours } = capacity;
 
     // 2. Extract topics from actual units in the syllabus
     const topicsList: {
@@ -223,8 +263,16 @@ export class StudyPlannerService {
     // Sort priority topics descending by priority score
     priorityTopics.sort((a, b) => b.priorityScore - a.priorityScore);
 
-    // 4. Calculate Readiness & Coverage Metrics (Requirement 6)
-    const coveragePercentage = Math.min(100, Math.round((totalAvailableHours / Math.max(1, requiredHoursSum)) * 100));
+    // 4. Calculate Required Study Time = Topic hours + practice hours + revision hours + assessment hours
+    const unitCount = subject.units?.length || 5;
+    const practiceHours = Math.round(unitCount * 1.5);
+    const revisionHours = Math.round(unitCount * 1.0);
+    const assessmentHours = 2;
+    const totalRequiredHours = requiredHoursSum + practiceHours + revisionHours + assessmentHours;
+
+    const gapHours = Math.max(0, Number((totalRequiredHours - totalAvailableHours).toFixed(1)));
+    const remainingCapacityHours = Math.max(0, Number((totalAvailableHours - totalRequiredHours).toFixed(1)));
+    const coveragePercentage = Math.min(100, Math.round((totalAvailableHours / Math.max(1, totalRequiredHours)) * 100));
     
     // Average current mastery across priority topics
     const avgMastery = Math.round(
@@ -436,7 +484,9 @@ export class StudyPlannerService {
       },
       metrics: {
         totalAvailableHours,
-        requiredEstimatedHours: requiredHoursSum,
+        requiredEstimatedHours: totalRequiredHours,
+        gapHours,
+        remainingCapacityHours,
         coveragePercentage,
         estimatedReadiness,
         recommendedDailyWorkload,

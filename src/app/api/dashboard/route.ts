@@ -15,6 +15,9 @@ export async function GET(req: NextRequest) {
   }
 
   const studentId = session.id;
+  const { searchParams } = new URL(req.url);
+  const qYear = searchParams.get('year');
+  const qSemester = searchParams.get('semester');
 
   // Fetch profile, knowledge states, and active misconceptions
   const profile = await db.studentProfile.findUnique({ where: { userId: studentId } });
@@ -25,6 +28,9 @@ export async function GET(req: NextRequest) {
   const preparationMode: PreparationMode = (profile?.preparationMode as PreparationMode) || 'ENGINEERING';
   const branchObj = findBranch(profile?.branchId || profile?.branch);
 
+  const selectedYear = qYear ? String(qYear) : (profile?.year || '1st Year');
+  const selectedSemester = qSemester ? String(qSemester) : (profile?.semester || 'Semester 1');
+
   // Compute Greeting based on hour
   const hour = new Date().getHours();
   let timeOfDay = 'morning';
@@ -34,15 +40,16 @@ export async function GET(req: NextRequest) {
   const firstName = session.name.split(' ')[0] || 'Learner';
   const greeting = `Good ${timeOfDay}, ${firstName}`;
 
-  // Authoritative Engineering Syllabus if in ENGINEERING mode
+  // Authoritative Engineering Syllabus strictly for selected year & semester
   let engineeringSyllabus = null;
   if (preparationMode === 'ENGINEERING') {
     engineeringSyllabus = resolveAuthoritativeSyllabus({
       university: profile?.university || 'JNTUH',
+      college: profile?.schoolCollege || undefined,
       regulation: profile?.regulation || 'R25',
       branch: branchObj?.id || profile?.branch || 'cse',
-      year: profile?.year || '1',
-      semester: profile?.semester || '1',
+      year: selectedYear,
+      semester: selectedSemester,
     });
   }
 
@@ -161,41 +168,44 @@ export async function GET(req: NextRequest) {
       },
     ];
   } else if (preparationMode === 'ENGINEERING') {
+    const sub1 = engineeringSyllabus?.subjects?.[0]?.name || 'Programming for Problem Solving';
+    const sub2 = engineeringSyllabus?.subjects?.[1]?.name || 'Matrices and Calculus';
+    const sub3 = engineeringSyllabus?.subjects?.[2]?.name || 'Applied Physics';
     todaysPlan = [
       {
         id: 1,
-        title: activeMisconceptions.length > 0 ? `Review ${targetConcept.title} Misconception` : 'Unit 3: Function Parameters & Return Stack Frames',
+        title: activeMisconceptions.length > 0 ? `Review ${targetConcept.title} Misconception` : `${sub1}: Core Functions & Parameter Flow`,
         type: 'misconception',
         completed: activeMisconceptions.length === 0,
         link: `/learn/${targetConcept.id}`,
       },
       {
         id: 2,
-        title: 'Watch Programming for Problem Solving targeted lesson',
+        title: `Watch ${sub1} targeted video lesson`,
         type: 'video',
         completed: false,
         link: `/learn/${targetConcept.id}#videos`,
       },
       {
         id: 3,
-        title: 'Complete 5 adaptive diagnostic questions for PPS Lab',
+        title: `Complete 5 adaptive diagnostic questions for ${sub1}`,
         type: 'quiz',
         completed: false,
         link: `/learn/${targetConcept.id}#assessment`,
       },
       {
         id: 4,
-        title: 'Matrices & Calculus: Review Row Echelon Form & Rank',
+        title: `${sub2}: Review Key Unit 1 Concepts`,
         type: 'practice',
         completed: false,
         link: '/syllabus',
       },
       {
         id: 5,
-        title: 'Operating Systems: Process Control Blocks & fork() semantics',
+        title: `${sub3}: Foundational Concepts & Derivations Review`,
         type: 'revision',
         completed: true,
-        link: '/learn/btech-os-processes',
+        link: '/engineering',
       },
     ];
   } else {
@@ -268,8 +278,8 @@ export async function GET(req: NextRequest) {
       branch: branchObj?.name || profile?.branch || 'Computer Science and Engineering',
       branchShort: branchObj?.shortName || 'CSE',
       regulation: profile?.regulation || 'R25',
-      year: profile?.year || '1st Year',
-      semester: profile?.semester || 'Semester 1',
+      year: selectedYear.includes('Year') ? selectedYear : `${selectedYear}${selectedYear === '1' ? 'st' : selectedYear === '2' ? 'nd' : selectedYear === '3' ? 'rd' : 'th'} Year`,
+      semester: selectedSemester.includes('Semester') ? selectedSemester : `Semester ${selectedSemester}`,
       targetExam: profile?.targetExam || 'JEE Main 2026',
       targetExamYear: profile?.targetExamYear || '2026',
       board: profile?.board || 'CBSE',

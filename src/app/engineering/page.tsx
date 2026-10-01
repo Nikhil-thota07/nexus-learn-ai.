@@ -132,8 +132,10 @@ export default function EngineeringPage() {
       .then((data) => {
         if (data && data.profile) {
           setProfile(data.profile);
-          const rawSem = data.profile.semester ? Number(String(data.profile.semester).replace(/\D/g, '')) || 1 : 1;
-          const rawYr = data.profile.year ? Number(String(data.profile.year).replace(/\D/g, '')) || 1 : 1;
+          const storedYr = typeof window !== 'undefined' ? localStorage.getItem('nexus_selected_year') : null;
+          const storedSem = typeof window !== 'undefined' ? localStorage.getItem('nexus_selected_semester') : null;
+          const rawSem = storedSem ? parseInt(storedSem) : (data.profile.semester ? Number(String(data.profile.semester).replace(/\D/g, '')) || 1 : 1);
+          const rawYr = storedYr ? parseInt(storedYr) : (data.profile.year ? Number(String(data.profile.year).replace(/\D/g, '')) || 1 : 1);
           setSelectedYear(rawYr);
           setSelectedSemester(rawSem);
           loadSemesterSubjects(rawYr, rawSem, data.profile);
@@ -145,12 +147,18 @@ export default function EngineeringPage() {
   const handleSemesterChange = (newSem: number) => {
     if (newSem === selectedSemester) return;
     setSelectedSemester(newSem);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexus_selected_semester', String(newSem));
+    }
     loadSemesterSubjects(selectedYear, newSem);
   };
 
   const handleYearChange = (newYear: number) => {
     if (newYear === selectedYear) return;
     setSelectedYear(newYear);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexus_selected_year', String(newYear));
+    }
     loadSemesterSubjects(newYear, selectedSemester);
   };
 

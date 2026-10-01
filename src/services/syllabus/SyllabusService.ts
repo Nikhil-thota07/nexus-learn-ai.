@@ -3,6 +3,7 @@ import {
   AuthoritativeSyllabus,
   SyllabusSubject,
   SyllabusUnit,
+  AUTHORITATIVE_SYLLABI,
 } from '@/data/syllabi';
 import { ComprehensiveStudentContext } from '@/services/context/StudentContextService';
 import { CONCEPTS } from '@/data/curriculum';
@@ -77,6 +78,20 @@ export class SyllabusService {
           s.programmingLanguage
       );
       if (ppsSub) return ppsSub;
+    }
+
+    // 6. Search across all authoritative syllabi if not in current semester
+    for (const syl of Object.values(AUTHORITATIVE_SYLLABI) as AuthoritativeSyllabus[]) {
+      const found = syl.subjects.find(
+        (s: SyllabusSubject) =>
+          s.id.toLowerCase() === q ||
+          s.code.toLowerCase() === q ||
+          s.name.toLowerCase() === q ||
+          s.name.toLowerCase().includes(q) ||
+          q.includes(s.name.toLowerCase()) ||
+          (q.includes('matric') && s.name.toLowerCase().includes('calculus'))
+      );
+      if (found) return found;
     }
 
     return subjects[0] || null;

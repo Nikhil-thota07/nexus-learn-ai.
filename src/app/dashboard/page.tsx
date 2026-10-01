@@ -34,10 +34,15 @@ export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number>(1);
+  const [selectedSemester, setSelectedSemester] = useState<number>(1);
 
-  const fetchDashboard = () => {
+  const fetchDashboard = (yr?: number, sem?: number) => {
     setLoading(true);
-    fetch('/api/dashboard')
+    const targetYr = yr ?? selectedYear;
+    const targetSem = sem ?? selectedSemester;
+
+    fetch(`/api/dashboard?year=${targetYr}&semester=${targetSem}`)
       .then((res) => {
         if (res.status === 401) {
           router.push('/login');
@@ -49,6 +54,14 @@ export default function DashboardPage() {
       .then((json) => {
         if (json) {
           setData(json);
+          if (json.profile?.year) {
+            const rawYr = Number(String(json.profile.year).replace(/\D/g, '')) || 1;
+            setSelectedYear(rawYr);
+          }
+          if (json.profile?.semester) {
+            const rawSem = Number(String(json.profile.semester).replace(/\D/g, '')) || 1;
+            setSelectedSemester(rawSem);
+          }
         }
       })
       .catch((err) => {
@@ -58,8 +71,36 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchDashboard();
+    const storedYr = typeof window !== 'undefined' ? localStorage.getItem('nexus_selected_year') : null;
+    const storedSem = typeof window !== 'undefined' ? localStorage.getItem('nexus_selected_semester') : null;
+    const initialYr = storedYr ? parseInt(storedYr) : 1;
+    const initialSem = storedSem ? parseInt(storedSem) : 1;
+    setSelectedYear(initialYr);
+    setSelectedSemester(initialSem);
+    fetchDashboard(initialYr, initialSem);
   }, []);
+
+  const handleSemesterSwitch = async (yr: number, sem: number) => {
+    setSelectedYear(yr);
+    setSelectedSemester(sem);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexus_selected_year', String(yr));
+      localStorage.setItem('nexus_selected_semester', String(sem));
+    }
+
+    try {
+      await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year: `${yr}${yr === 1 ? 'st' : yr === 2 ? 'nd' : yr === 3 ? 'rd' : 'th'} Year`,
+          semester: `Semester ${sem}`,
+        }),
+      });
+    } catch {}
+
+    fetchDashboard(yr, sem);
+  };
 
   if (loading) {
     return (
@@ -173,7 +214,8 @@ export default function DashboardPage() {
             <span>AI Academic Tutor</span>
           </Link>
           <button
-            onClick={fetchDashboard}
+            type="button"
+            onClick={() => fetchDashboard()}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-subtle hover:text-main bg-white border border-border rounded-xl hover:bg-slate-50 transition"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -184,63 +226,99 @@ export default function DashboardPage() {
 
       {/* 2. MODE-SPECIFIC HIGHLIGHT CARDS */}
       {/* 2A: ENGINEERING OFFICIAL SYLLABUS SUBJECTS */}
-      {preparationMode === 'ENGINEERING' && engineeringSyllabus && (
+      {preparationMode === 'ENGINEERING' && (
         <div className="nexus-card p-6 space-y-4 border-indigo-100 bg-gradient-to-r from-slate-50 via-indigo-50/20 to-white">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
             <div className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-secondary" />
               <h3 className="font-bold text-main text-base">
-                Official Syllabus Subjects &bull; {engineeringSyllabus.university} ({engineeringSyllabus.regulation})
+                Official Syllabus Subjects &bull; Year {selectedYear}, Semester {selectedSemester}
               </h3>
             </div>
-            <div className="flex items-center gap-2 text-xs text-subtle">
-              <span className="font-mono bg-white px-2 py-0.5 rounded border border-border">
-                {engineeringSyllabus.id}
-              </span>
-              <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                Verified Source
-              </span>
+            
+            {/* Interactive Year & Semester Selector */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold text-subtle uppercase">Semester:</span>
+              <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-border">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => {
+                  const y = Math.ceil(s / 2);
+                  const isCurrent = selectedSemester === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => handleSemesterSwitch(y, s)}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition ${
+                        isCurrent
+                          ? 'bg-primary text-white shadow-subtle'
+                          : 'text-subtle hover:text-main hover:bg-slate-100'
+                      }`}
+                    >
+                      S{s}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {engineeringSyllabus.subjects.map((sub: any) => (
-              <div
-                key={sub.id}
-                className="p-4 bg-white rounded-xl border border-border shadow-subtle flex flex-col justify-between hover:border-primary/40 transition"
-              >
-                <div>
-                  <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="font-mono font-bold text-subtle">{sub.code}</span>
-                    <span className="text-[10px] font-semibold text-primary bg-primary-50 px-1.5 py-0.5 rounded">
-                      {sub.credits} Credits
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-sm text-main line-clamp-1">{sub.name}</h4>
-                  <p className="text-xs text-subtle mt-1">
-                    Category: {sub.category}
-                    {sub.programmingLanguage && (
-                      <span className="ml-1 text-indigo-600 font-semibold">
-                        ({sub.programmingLanguage})
+          {engineeringSyllabus && engineeringSyllabus.subjects && engineeringSyllabus.subjects.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {engineeringSyllabus.subjects.map((sub: any) => (
+                <div
+                  key={sub.id}
+                  className="p-4 bg-white rounded-xl border border-border shadow-subtle flex flex-col justify-between hover:border-primary/40 transition"
+                >
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] mb-1">
+                      <span className="font-mono font-bold text-subtle">{sub.code}</span>
+                      <span className="text-[10px] font-semibold text-primary bg-primary-50 px-1.5 py-0.5 rounded">
+                        {sub.credits} Credits
                       </span>
-                    )}
-                  </p>
+                    </div>
+                    <h4 className="font-bold text-sm text-main line-clamp-1">{sub.name}</h4>
+                    <p className="text-xs text-subtle mt-1">
+                      Category: {sub.category}
+                      {sub.programmingLanguage && (
+                        <span className="ml-1 text-indigo-600 font-semibold">
+                          ({sub.programmingLanguage})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="pt-3 flex items-center justify-between text-xs">
+                    <span className="text-[11px] text-emerald-600 font-semibold">
+                      {sub.units?.length || 5} Units Active
+                    </span>
+                    <Link
+                      href={`/syllabus`}
+                      className="font-bold text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      <span>Inspect</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 </div>
-                <div className="pt-3 flex items-center justify-between text-xs">
-                  <span className="text-[11px] text-emerald-600 font-semibold">
-                    {sub.units?.length || 5} Units Active
-                  </span>
-                  <Link
-                    href={`/syllabus`}
-                    className="font-bold text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    <span>Inspect</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-white rounded-xl border border-dashed border-border space-y-3">
+              <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
+              <p className="text-sm font-bold text-main">
+                No syllabus data available for Year {selectedYear} — Semester {selectedSemester}.
+              </p>
+              <p className="text-xs text-subtle max-w-sm mx-auto">
+                Upload your official college syllabus PDF to extract and view subjects for Semester {selectedSemester}.
+              </p>
+              <Link
+                href="/engineering"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-700 transition shadow-subtle"
+              >
+                <span>Upload Syllabus PDF</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

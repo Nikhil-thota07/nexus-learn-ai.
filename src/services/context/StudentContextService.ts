@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { CONCEPTS } from '@/data/curriculum';
-import { resolveAuthoritativeSyllabus, AuthoritativeSyllabus } from '@/data/syllabi';
+import { resolveAuthoritativeSyllabus, AuthoritativeSyllabus, AUTHORITATIVE_SYLLABI } from '@/data/syllabi';
 import { findBranch } from '@/data/branches';
 import { PreparationMode } from '@/types';
 
@@ -145,14 +145,33 @@ export class StudentContextService {
 
     // Identify current subject
     let currentSubject: ComprehensiveStudentContext['currentSubject'] = undefined;
-    if (options?.subjectIdOrName && authSyllabus) {
+    if (options?.subjectIdOrName) {
       const needle = options.subjectIdOrName.toLowerCase().trim();
-      const matched = authSyllabus.subjects.find(
+      let matched = authSyllabus?.subjects.find(
         (s) =>
           s.id.toLowerCase() === needle ||
           s.code.toLowerCase() === needle ||
-          s.name.toLowerCase().includes(needle)
+          s.name.toLowerCase().includes(needle) ||
+          needle.includes(s.name.toLowerCase())
       );
+
+      if (!matched && AUTHORITATIVE_SYLLABI) {
+        for (const syl of Object.values(AUTHORITATIVE_SYLLABI)) {
+          const m = syl.subjects.find(
+            (s) =>
+              s.id.toLowerCase() === needle ||
+              s.code.toLowerCase() === needle ||
+              s.name.toLowerCase().includes(needle) ||
+              needle.includes(s.name.toLowerCase()) ||
+              (needle.includes('matric') && s.name.toLowerCase().includes('calculus'))
+          );
+          if (m) {
+            matched = m;
+            break;
+          }
+        }
+      }
+
       if (matched) {
         currentSubject = {
           id: matched.id,

@@ -41,9 +41,15 @@ export default function SyllabusPage() {
   const [activeWeekTab, setActiveWeekTab] = useState<1 | 2>(1);
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
 
-  // Load student context on mount
+  // Load student context on mount with semester synchronization
   useEffect(() => {
-    fetch('/api/syllabus/plan')
+    const storedYr = typeof window !== 'undefined' ? localStorage.getItem('nexus_selected_year') : null;
+    const storedSem = typeof window !== 'undefined' ? localStorage.getItem('nexus_selected_semester') : null;
+    const queryParams = new URLSearchParams();
+    if (storedYr) queryParams.set('year', storedYr);
+    if (storedSem) queryParams.set('semester', storedSem);
+
+    fetch(`/api/syllabus/plan?${queryParams.toString()}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && data.context) {
@@ -67,6 +73,9 @@ export default function SyllabusPage() {
     setGenerating(true);
 
     try {
+      const storedYr = typeof window !== 'undefined' ? localStorage.getItem('nexus_selected_year') : null;
+      const storedSem = typeof window !== 'undefined' ? localStorage.getItem('nexus_selected_semester') : null;
+
       const res = await fetch('/api/syllabus/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,6 +85,8 @@ export default function SyllabusPage() {
           target,
           weeks: Number(weeks),
           dailyHours: Number(dailyHours),
+          year: storedYr || context?.year,
+          semester: storedSem || context?.semester,
         }),
       });
 
@@ -226,8 +237,9 @@ export default function SyllabusPage() {
               </label>
               <input
                 type="number"
-                min={1}
-                max={12}
+                min={0.5}
+                max={16}
+                step={0.5}
                 value={dailyHours}
                 onChange={(e) => setDailyHours(Number(e.target.value))}
                 className="w-full px-3 py-2 text-xs bg-slate-50 border border-border rounded-xl text-main font-medium focus:ring-1 focus:ring-primary focus:outline-none"
@@ -283,13 +295,13 @@ export default function SyllabusPage() {
                   {plan.goal.durationWeeks}-Week Plan: {plan.subject.name}
                 </h2>
                 <p className="text-xs text-subtle mt-0.5">
-                  Grounded in authoritative syllabus &bull; Calibrated for <strong>{plan.goal.target}</strong> ({plan.goal.durationDays} Days &bull; {plan.goal.dailyHours} hrs/day)
+                  Grounded in authoritative syllabus &bull; Calibrated for <strong>{plan.goal.target}</strong> ({plan.goal.durationWeeks} Weeks &bull; {plan.goal.durationDays} Days &bull; {plan.goal.dailyHours} hrs/day)
                 </p>
               </div>
 
               <div className="flex items-center gap-3">
                 <div className="text-center px-4 py-2 bg-white rounded-xl border border-border shadow-subtle">
-                  <div className="text-xs font-bold text-subtle">Total Hours</div>
+                  <div className="text-xs font-bold text-subtle">Total Available</div>
                   <div className="text-lg font-extrabold text-main">{plan.metrics.totalAvailableHours} hrs</div>
                 </div>
                 <div className="text-center px-4 py-2 bg-white rounded-xl border border-border shadow-subtle">
@@ -319,12 +331,16 @@ export default function SyllabusPage() {
                 <span className="text-sm font-extrabold text-main">{plan.metrics.requiredEstimatedHours} hrs</span>
               </div>
               <div className="p-3 bg-white rounded-xl border border-border text-center">
-                <span className="text-[11px] font-bold text-subtle block">Recommended Workload</span>
-                <span className="text-sm font-extrabold text-primary">{plan.metrics.recommendedDailyWorkload} hrs/day</span>
+                <span className="text-[11px] font-bold text-subtle block">
+                  {plan.metrics.gapHours > 0 ? 'Study Gap' : 'Remaining Capacity'}
+                </span>
+                <span className={`text-sm font-extrabold ${plan.metrics.gapHours > 0 ? 'text-amber-600' : 'text-emerald-700'}`}>
+                  {plan.metrics.gapHours > 0 ? `-${plan.metrics.gapHours} hrs` : `+${plan.metrics.remainingCapacityHours} hrs`}
+                </span>
               </div>
               <div className="p-3 bg-white rounded-xl border border-border text-center">
-                <span className="text-[11px] font-bold text-subtle block">Risk Areas Flagged</span>
-                <span className="text-sm font-extrabold text-red-600">{plan.metrics.riskAreas.length} Topics</span>
+                <span className="text-[11px] font-bold text-subtle block">Recommended Workload</span>
+                <span className="text-sm font-extrabold text-primary">{plan.metrics.recommendedDailyWorkload} hrs/day</span>
               </div>
             </div>
           </div>
