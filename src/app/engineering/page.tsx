@@ -149,17 +149,26 @@ export default function EngineeringPage() {
     setSelectedSemester(newSem);
     if (typeof window !== 'undefined') {
       localStorage.setItem('nexus_selected_semester', String(newSem));
+      localStorage.setItem('nexus_selected_year', String(selectedYear));
     }
+    setSyllabus(null);
+    setSelectedSubject(null);
+    setSubjectQuestions([]);
     loadSemesterSubjects(selectedYear, newSem);
   };
 
   const handleYearChange = (newYear: number) => {
     if (newYear === selectedYear) return;
     setSelectedYear(newYear);
+    setSelectedSemester(1);
     if (typeof window !== 'undefined') {
       localStorage.setItem('nexus_selected_year', String(newYear));
+      localStorage.setItem('nexus_selected_semester', '1');
     }
-    loadSemesterSubjects(newYear, selectedSemester);
+    setSyllabus(null);
+    setSelectedSubject(null);
+    setSubjectQuestions([]);
+    loadSemesterSubjects(newYear, 1);
   };
 
   const handleSelectSubject = async (sub: SyllabusSubject) => {

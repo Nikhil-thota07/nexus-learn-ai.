@@ -115,6 +115,83 @@ export interface YouTubeCacheRecord {
   expiresAt: string;
 }
 
+export interface CertificateRecord {
+  id: string;
+  studentId: string;
+  fileName: string;
+  fileType: string;
+  fileDataBase64?: string;
+  certificateTitle: string;
+  certificateType: string;
+  organization: string;
+  eventName: string;
+  issueDate: string;
+  credentialId: string;
+  description: string;
+  extractionConfidence: number;
+  verificationStatus: 'PENDING' | 'EXTRACTED' | 'VERIFIED' | 'FAILED';
+  domains: Array<{ domain: string; confidence: number; evidenceLevel: string }>;
+  skillsDetected: Array<{ skillName: string; confidence: number; evidenceLevel: string; validationStatus: 'PENDING' | 'ASSESSED' | 'VALIDATED' }>;
+  evidenceLevel: 'EXPOSURE' | 'LEARNING' | 'DEMONSTRATED' | 'VERIFIED_ACHIEVEMENT';
+  reasoningSummary: string;
+  recommendedAssessment: string[];
+  nextSkillRecommendations: Array<{ skill: string; reason: string; priority: 'HIGH' | 'MEDIUM' | 'LOW' }>;
+  learningPathUpdates: string[];
+  uploadedAt: string;
+}
+
+export interface LinkedInProfileRecord {
+  id: string;
+  studentId: string;
+  profileUrl: string;
+  profileData: string;
+  lastAnalyzedAt: string;
+  analysisStatus: 'PENDING' | 'ANALYZED' | 'FAILED';
+  dataSource: 'URL_PROVIDED' | 'PDF_UPLOAD' | 'TEXT_PASTE';
+  skillsDetected: Array<{
+    skillName: string;
+    evidence: string;
+    evidenceStrength: 'HIGH' | 'MEDIUM' | 'LOW';
+    confidence: number;
+    sourceSection: string;
+  }>;
+  experiences: Array<{
+    title: string;
+    organization: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+    detectedSkills: string[];
+  }>;
+  projects: Array<{
+    projectName: string;
+    description: string;
+    detectedSkills: string[];
+    technologies: string[];
+  }>;
+  certifications: Array<{ name: string; organization: string; date: string }>;
+  education: Array<{ degree: string; institution: string; year: string }>;
+  headline: string;
+  about: string;
+  skillGaps: Array<{ skill: string; reason: string; priority: string }>;
+  nextSkillRecommendations: Array<{ skill: string; reason: string; priority: string }>;
+  careerAlignments: Array<{ role: string; alignmentScore: number; missingSkills: string[] }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SkillEvidenceRecord {
+  id: string;
+  studentId: string;
+  skillName: string;
+  sourceType: 'CERTIFICATE' | 'ASSESSMENT' | 'PROJECT' | 'LINKEDIN' | 'COURSE' | 'HACKATHON' | 'INTERNSHIP' | 'SELF_REPORTED';
+  sourceId: string;
+  evidenceLevel: 'EXPOSURE' | 'LEARNING' | 'DEMONSTRATED' | 'VERIFIED_ACHIEVEMENT';
+  confidence: number;
+  assessmentScore?: number;
+  createdAt: string;
+}
+
 interface DatabaseSchema {
   users: UserRecord[];
   profiles: ProfileRecord[];
@@ -122,9 +199,12 @@ interface DatabaseSchema {
   misconceptions: MisconceptionRecord[];
   attempts: AttemptRecord[];
   youtubeCache: YouTubeCacheRecord[];
+  certificates: CertificateRecord[];
+  linkedinProfiles: LinkedInProfileRecord[];
+  skillEvidence: SkillEvidenceRecord[];
 }
 
-let memoryStore: DatabaseSchema = JSON.parse(JSON.stringify(initialStoreData));
+let memoryStore: DatabaseSchema = { ...JSON.parse(JSON.stringify(initialStoreData)), certificates: [], linkedinProfiles: [], skillEvidence: [] };
 
 function isServerless(): boolean {
   if (typeof process === 'undefined') return false;
@@ -156,6 +236,9 @@ function ensureStorage(): DatabaseSchema {
     if (fs.existsSync(localFile)) {
       const raw = fs.readFileSync(localFile, 'utf-8');
       const parsed: DatabaseSchema = JSON.parse(raw);
+      if (!parsed.certificates) parsed.certificates = [];
+      if (!parsed.linkedinProfiles) parsed.linkedinProfiles = [];
+      if (!parsed.skillEvidence) parsed.skillEvidence = [];
       if (parsed.users && parsed.users.length > 0) {
         memoryStore = parsed;
         return memoryStore;
@@ -533,7 +616,6 @@ export const db = {
       const cached = store.youtubeCache.find((c) => c.queryKey === where.queryKey);
       if (!cached) return null;
       if (new Date(cached.expiresAt).getTime() < Date.now()) {
-        // Expired
         store.youtubeCache = store.youtubeCache.filter((c) => c.queryKey !== where.queryKey);
         saveStorage(store);
         return null;
@@ -563,6 +645,85 @@ export const db = {
         });
       }
       saveStorage(store);
+    },
+  },
+
+  certificate: {
+    findMany: async ({ where }: { where?: Partial<CertificateRecord> } = {}) => {
+      const store = ensureStorage();
+      if (!where || Object.keys(where).length === 0) return store.certificates;
+      return store.certificates.filter((c) => Object.entries(where).every(([key, val]) => (c as any)[key] === val));
+    },
+    findUnique: async ({ where }: { where: { id: string } }) => {
+      const store = ensureStorage();
+      return store.certificates.find((c) => c.id === where.id) || null;
+    },
+    create: async ({ data }: { data: CertificateRecord }) => {
+      const store = ensureStorage();
+      store.certificates.push(data);
+      saveStorage(store);
+      return data;
+    },
+    update: async ({ where, data }: { where: { id: string }; data: Partial<CertificateRecord> }) => {
+      const store = ensureStorage();
+      const index = store.certificates.findIndex((c) => c.id === where.id);
+      if (index === -1) throw new Error('Certificate not found');
+      store.certificates[index] = { ...store.certificates[index], ...data };
+      saveStorage(store);
+      return store.certificates[index];
+    },
+    delete: async ({ where }: { where: { id: string; studentId?: string } }) => {
+      const store = ensureStorage();
+      store.certificates = store.certificates.filter((c) => {
+        if (c.id === where.id) {
+          if (where.studentId && c.studentId !== where.studentId) return true; // Keep it if studentId mismatch
+          return false; // delete
+        }
+        return true;
+      });
+      saveStorage(store);
+      return { success: true };
+    },
+  },
+
+  linkedinProfile: {
+    findFirst: async ({ where }: { where: { studentId: string } }) => {
+      const store = ensureStorage();
+      return store.linkedinProfiles.find((p) => p.studentId === where.studentId) || null;
+    },
+    create: async ({ data }: { data: LinkedInProfileRecord }) => {
+      const store = ensureStorage();
+      store.linkedinProfiles.push(data);
+      saveStorage(store);
+      return data;
+    },
+    update: async ({ where, data }: { where: { id: string }; data: Partial<LinkedInProfileRecord> }) => {
+      const store = ensureStorage();
+      const index = store.linkedinProfiles.findIndex((p) => p.id === where.id);
+      if (index === -1) throw new Error('LinkedIn Profile not found');
+      store.linkedinProfiles[index] = { ...store.linkedinProfiles[index], ...data };
+      saveStorage(store);
+      return store.linkedinProfiles[index];
+    },
+    delete: async ({ where }: { where: { id: string } }) => {
+      const store = ensureStorage();
+      store.linkedinProfiles = store.linkedinProfiles.filter((p) => p.id !== where.id);
+      saveStorage(store);
+      return { success: true };
+    },
+  },
+
+  skillEvidence: {
+    findMany: async ({ where }: { where?: Partial<SkillEvidenceRecord> } = {}) => {
+      const store = ensureStorage();
+      if (!where || Object.keys(where).length === 0) return store.skillEvidence;
+      return store.skillEvidence.filter((e) => Object.entries(where).every(([key, val]) => (e as any)[key] === val));
+    },
+    create: async ({ data }: { data: SkillEvidenceRecord }) => {
+      const store = ensureStorage();
+      store.skillEvidence.push(data);
+      saveStorage(store);
+      return data;
     },
   },
 };

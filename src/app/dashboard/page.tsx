@@ -38,9 +38,11 @@ export default function DashboardPage() {
   const [selectedSemester, setSelectedSemester] = useState<number>(1);
 
   const fetchDashboard = (yr?: number, sem?: number) => {
-    setLoading(true);
     const targetYr = yr ?? selectedYear;
     const targetSem = sem ?? selectedSemester;
+    setLoading(true);
+    // Immediately clear stale curriculum data so old semester subjects don't remain visible
+    setData((prev: any) => prev ? { ...prev, engineeringSyllabus: null } : null);
 
     fetch(`/api/dashboard?year=${targetYr}&semester=${targetSem}`)
       .then((res) => {
