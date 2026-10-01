@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { CONCEPTS } from '@/data/curriculum';
+import initialStoreData from '@/data/initial_store.json';
 
 export interface UserRecord {
   id: string;
@@ -122,100 +124,77 @@ interface DatabaseSchema {
   youtubeCache: YouTubeCacheRecord[];
 }
 
-const DATA_DIR = path.join(process.cwd(), '.data');
-const DATA_FILE = path.join(DATA_DIR, 'nexus_store.json');
+let memoryStore: DatabaseSchema | null = null;
+
+function getStoragePaths(): { dir: string; file: string } {
+  // If running in Vercel or Serverless environment, process.cwd() is read-only (/var/task)
+  // os.tmpdir() (/tmp) is always writable on serverless platforms.
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    const tmpDir = path.join(os.tmpdir(), 'nexus_learn_ai');
+    return { dir: tmpDir, file: path.join(tmpDir, 'nexus_store.json') };
+  }
+  const localDir = path.join(process.cwd(), '.data');
+  return { dir: localDir, file: path.join(localDir, 'nexus_store.json') };
+}
 
 function ensureStorage(): DatabaseSchema {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (memoryStore) {
+    return memoryStore;
   }
 
-  if (!fs.existsSync(DATA_FILE)) {
-    const initialData: DatabaseSchema = {
-      users: [],
-      profiles: [],
-      knowledge: [],
-      misconceptions: [],
-      attempts: [],
-      youtubeCache: [],
-    };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
-    return initialData;
-  }
+  const { dir, file } = getStoragePaths();
 
   try {
-    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    const parsed: DatabaseSchema = JSON.parse(raw);
-    
-    // Automatic Migration: preserve all user data while upgrading schema
-    let needsSave = false;
-    if (parsed.profiles) {
-      parsed.profiles.forEach((p) => {
-        if (!p.preparationMode) {
-          if (p.educationLevel === 'High School' || p.targetExam?.toLowerCase().includes('jee')) {
-            p.preparationMode = 'JEE';
-          } else {
-            p.preparationMode = 'ENGINEERING';
-          }
-          needsSave = true;
-        }
-
-        if (p.branch && (p.branch.includes('Computer Science & Engineering') || p.branch.toLowerCase() === 'cse')) {
-          p.branchId = 'cse';
-          p.branch = 'Computer Science and Engineering';
-          needsSave = true;
-        } else if (p.branch && !p.branchId) {
-          p.branchId = 'cse';
-          needsSave = true;
-        }
-
-        if (!p.regulation) {
-          p.regulation = 'R25';
-          needsSave = true;
-        }
-        if (!p.year) {
-          p.year = '1st Year';
-          needsSave = true;
-        }
-        if (!p.semester) {
-          p.semester = 'Semester 1';
-          needsSave = true;
-        }
-        if (!p.syllabusId && p.preparationMode === 'ENGINEERING') {
-          p.syllabusId = 'JNTUH-R25-CSE-Y1-S1';
-          p.syllabusVersion = 'R25.1.0';
-          p.syllabusSource = 'OFFICIAL_UNIVERSITY';
-          needsSave = true;
-        }
-      });
+    if (!fs.existsSync(dir)) {
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+      } catch (err) {
+        // Ignored if directory cannot be created
+      }
     }
 
-    if (needsSave) {
-      saveStorage(parsed);
+    if (fs.existsSync(file)) {
+      const raw = fs.readFileSync(file, 'utf-8');
+      const parsed: DatabaseSchema = JSON.parse(raw);
+      if (parsed.users && parsed.users.length > 0) {
+        memoryStore = parsed;
+        return memoryStore;
+      }
     }
-
-    return parsed;
   } catch (err) {
-    const initialData: DatabaseSchema = {
-      users: [],
-      profiles: [],
-      knowledge: [],
-      misconceptions: [],
-      attempts: [],
-      youtubeCache: [],
-    };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
-    return initialData;
+    // If reading from disk fails, continue to initial store fallback
   }
+
+  // Fallback to bundled initial store data
+  const initialData: DatabaseSchema = JSON.parse(JSON.stringify(initialStoreData));
+  memoryStore = initialData;
+
+  // Try to write initial copy to writable disk if possible
+  try {
+    if (fs.existsSync(dir)) {
+      fs.writeFileSync(file, JSON.stringify(initialData, null, 2), 'utf-8');
+    }
+  } catch (err) {
+    // Ignored in read-only environment
+  }
+
+  return memoryStore;
 }
 
 function saveStorage(data: DatabaseSchema) {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  memoryStore = data;
+  const { dir, file } = getStoragePaths();
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const tempFile = `${file}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tempFile, file);
+  } catch (err) {
+    // Non-fatal on serverless: state is preserved in memoryStore
+    console.warn('Storage disk write bypassed, preserved in memory:', (err as any)?.message);
   }
-  const tempFile = `${DATA_FILE}.tmp`;
-  fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tempFile, DATA_FILE);
 }
 
 // Helper to seed initial knowledge state for a new student matching Prompt Section 1
@@ -320,7 +299,7 @@ export const db = {
     findUnique: async ({ where }: { where: { email?: string; id?: string } }) => {
       const store = ensureStorage();
       if (where.email) {
-        return store.users.find((u) => u.email.toLowerCase() === where.email?.toLowerCase()) || null;
+        return store.users.find((u) => u.email.toLowerCase().trim() === where.email?.toLowerCase().trim()) || null;
       }
       if (where.id) {
         return store.users.find((u) => u.id === where.id) || null;
