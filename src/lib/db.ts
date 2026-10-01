@@ -138,6 +138,29 @@ export interface CertificateRecord {
   nextSkillRecommendations: Array<{ skill: string; reason: string; priority: 'HIGH' | 'MEDIUM' | 'LOW' }>;
   learningPathUpdates: string[];
   uploadedAt: string;
+  detectedDomain?: string;
+  experienceType?: string;
+  exposureSummary?: string;
+  personalizedNextSkillPath?: string[];
+  verificationAdvice?: string;
+  diagnosticQuestions?: Array<{
+    id: string;
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+    skillTested: string;
+    difficulty: 'Fundamentals' | 'Intermediate' | 'Advanced';
+  }>;
+  assessmentResult?: {
+    assessedAt: string;
+    scorePercent: number;
+    assessedSkills: Array<{ skill: string; score: number; status: 'Mastered' | 'Developing' | 'Needs Review' }>;
+    weakAreas: string[];
+    updatedLearningPath: string[];
+    recommendedVideos: Array<{ videoId: string; title: string; channelTitle?: string }>;
+    careerRoadmapNote?: string;
+  };
 }
 
 export interface LinkedInProfileRecord {

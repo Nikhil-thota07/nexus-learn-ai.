@@ -35,12 +35,22 @@ export async function POST(req: NextRequest) {
     let textContent = '';
 
     if (fileExt === 'pdf') {
-      // Extract text from PDF: use buffer toString to get any readable text
-      // For production: use pdf-parse npm package. For now: extract printable ASCII
-      textContent = buffer.toString('latin1').replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
-      // If too short, fall back to filename analysis
-      if (textContent.length < 50) {
-        textContent = `Certificate file: ${file.name}. PDF content could not be fully extracted.`;
+      try {
+        const pdfParse = require('pdf-parse');
+        const parsed = await pdfParse(buffer);
+        textContent = parsed.text || '';
+      } catch (err) {
+        // Fallback text extraction from raw PDF stream
+        const raw = buffer.toString('latin1');
+        const matches = raw.match(/\(([^()]+)\)T[jJ]/g);
+        if (matches && matches.length > 0) {
+          textContent = matches.map((m) => m.replace(/[()]/g, '')).join(' ');
+        } else {
+          textContent = raw.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+      }
+      if (textContent.length < 30) {
+        textContent = `Certificate file: ${file.name}. Domain and credential analysis.`;
       }
     } else {
       // Image: use base64 + OpenAI Vision if available, otherwise use filename
@@ -67,7 +77,7 @@ export async function POST(req: NextRequest) {
           textContent = `Certificate image: ${file.name}. Image content analysis unavailable.`;
         }
       } else {
-        textContent = `Certificate image: ${file.name}. OCR not available — analyzing by filename.`;
+        textContent = `Certificate image: ${file.name}. Analyzing by filename and credentials.`;
       }
     }
 
@@ -105,6 +115,12 @@ export async function POST(req: NextRequest) {
         nextSkillRecommendations: analysis.nextSkillRecommendations,
         learningPathUpdates: analysis.learningPathUpdates,
         uploadedAt: now,
+        detectedDomain: analysis.detectedDomain,
+        experienceType: analysis.experienceType,
+        exposureSummary: analysis.exposureSummary,
+        personalizedNextSkillPath: analysis.personalizedNextSkillPath,
+        verificationAdvice: analysis.verificationAdvice,
+        diagnosticQuestions: analysis.diagnosticQuestions,
       }
     });
 

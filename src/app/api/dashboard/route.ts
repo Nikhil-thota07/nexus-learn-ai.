@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
   const knowledgeList = await db.knowledgeState.findMany({ where: { studentId } });
   const misconceptions = await db.misconception.findMany({ where: { studentId } });
   const activeMisconceptions = misconceptions.filter((m) => m.status === 'ACTIVE');
+  const certificates = await db.certificate.findMany({ where: { studentId } });
 
   const preparationMode: PreparationMode = (profile?.preparationMode as PreparationMode) || 'ENGINEERING';
   const branchObj = findBranch(profile?.branchId || profile?.branch);
@@ -302,5 +303,6 @@ export async function GET(req: NextRequest) {
     recommendedVideos,
     roadmap,
     activeMisconceptions,
+    certificates,
   });
 }

@@ -149,6 +149,7 @@ export default function DashboardPage() {
     recommendedVideos,
     roadmap,
     activeMisconceptions,
+    certificates,
   } = data;
 
   // Title by Mode (Section 46 Requirement)
@@ -225,6 +226,40 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* CERTIFICATE INTELLIGENCE NOTIFICATION BANNER */}
+      {certificates && certificates.length > 0 && (
+        <div className="nexus-card p-4 sm:p-5 border-indigo-200 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Award className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
+                  Certificate Analyzed
+                </span>
+                <span className="text-xs font-bold text-main line-clamp-1">
+                  {certificates[certificates.length - 1].certificateTitle}
+                </span>
+              </div>
+              <p className="text-xs text-subtle mt-0.5">
+                <strong>{certificates[certificates.length - 1].detectedDomain || 'Domain'}</strong> exposure detected.
+                {certificates[certificates.length - 1].assessmentResult
+                  ? ` Knowledge calibrated (${certificates[certificates.length - 1].assessmentResult.scorePercent}%). Your learning path is up to date.`
+                  : ' Your learning path has been updated with recommended next skills.'}
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/achievements"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-700 transition shrink-0 shadow-xs"
+          >
+            <span>{certificates[certificates.length - 1].assessmentResult ? 'View Skills & Path' : 'Take Skill Assessment'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
 
       {/* 2. MODE-SPECIFIC HIGHLIGHT CARDS */}
       {/* 2A: ENGINEERING OFFICIAL SYLLABUS SUBJECTS */}
