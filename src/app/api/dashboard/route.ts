@@ -4,6 +4,9 @@ import { db } from '@/lib/db';
 import { CONCEPTS } from '@/data/curriculum';
 import { determineNextBestAction, getConfidenceCalibration } from '@/lib/adaptive/engine';
 import { searchEducationalVideos } from '@/lib/youtube/service';
+import { resolveAuthoritativeSyllabus } from '@/data/syllabi';
+import { findBranch } from '@/data/branches';
+import { PreparationMode } from '@/types';
 
 export async function GET(req: NextRequest) {
   const session = await getSessionUser(req);
@@ -13,10 +16,14 @@ export async function GET(req: NextRequest) {
 
   const studentId = session.id;
 
-  // Fetch knowledge states and misconceptions
+  // Fetch profile, knowledge states, and active misconceptions
+  const profile = await db.studentProfile.findUnique({ where: { userId: studentId } });
   const knowledgeList = await db.knowledgeState.findMany({ where: { studentId } });
   const misconceptions = await db.misconception.findMany({ where: { studentId } });
   const activeMisconceptions = misconceptions.filter((m) => m.status === 'ACTIVE');
+
+  const preparationMode: PreparationMode = (profile?.preparationMode as PreparationMode) || 'ENGINEERING';
+  const branchObj = findBranch(profile?.branchId || profile?.branch);
 
   // Compute Greeting based on hour
   const hour = new Date().getHours();
@@ -27,21 +34,53 @@ export async function GET(req: NextRequest) {
   const firstName = session.name.split(' ')[0] || 'Learner';
   const greeting = `Good ${timeOfDay}, ${firstName}`;
 
+  // Authoritative Engineering Syllabus if in ENGINEERING mode
+  let engineeringSyllabus = null;
+  if (preparationMode === 'ENGINEERING') {
+    engineeringSyllabus = resolveAuthoritativeSyllabus({
+      university: profile?.university || 'JNTUH',
+      regulation: profile?.regulation || 'R25',
+      branch: branchObj?.id || profile?.branch || 'cse',
+      year: profile?.year || '1',
+      semester: profile?.semester || '1',
+    });
+  }
+
+  // Determine appropriate track based on mode
+  let preferredTrack = 'python';
+  if (preparationMode === 'JEE') {
+    preferredTrack = 'jee-physics';
+  } else if (preparationMode === 'ENGINEERING') {
+    preferredTrack = 'python'; // or engineering core programming
+  } else if (preparationMode === 'SKILL') {
+    preferredTrack = 'python';
+  }
+
   // Next best action
-  const nextAction = await determineNextBestAction(studentId, 'python');
+  const nextAction = await determineNextBestAction(studentId, preferredTrack);
 
-  // Learning Health metrics
-  const totalConcepts = knowledgeList.length;
-  const masteredCount = knowledgeList.filter((k) => k.status === 'MASTERED').length;
-  const attentionCount = knowledgeList.filter((k) => k.status === 'NEEDS_REVIEW').length;
+  // Mode-aware concepts subset for health metrics
+  const relevantConcepts =
+    preparationMode === 'JEE'
+      ? CONCEPTS.filter((c) => c.track.startsWith('jee'))
+      : preparationMode === 'ENGINEERING'
+      ? CONCEPTS.filter((c) => c.track === 'python' || c.track.startsWith('btech'))
+      : CONCEPTS.filter((c) => c.track === 'python');
 
-  const totalMastery = knowledgeList.reduce((acc, k) => acc + k.masteryScore, 0);
-  const avgMastery = totalConcepts > 0 ? Math.round(totalMastery / totalConcepts) : 0;
+  const relevantConceptIds = new Set(relevantConcepts.map((c) => c.id));
+  const modeKnowledge = knowledgeList.filter((k) => relevantConceptIds.has(k.conceptId));
 
-  const totalAccuracy = knowledgeList.reduce((acc, k) => acc + k.accuracy, 0);
-  const avgAccuracy = totalConcepts > 0 ? Math.round(totalAccuracy / totalConcepts) : 0;
+  const totalConcepts = modeKnowledge.length || relevantConcepts.length;
+  const masteredCount = modeKnowledge.filter((k) => k.status === 'MASTERED').length;
+  const attentionCount = modeKnowledge.filter((k) => k.status === 'NEEDS_REVIEW').length;
 
-  const calibration = getConfidenceCalibration(knowledgeList);
+  const totalMastery = modeKnowledge.reduce((acc, k) => acc + k.masteryScore, 0);
+  const avgMastery = modeKnowledge.length > 0 ? Math.round(totalMastery / modeKnowledge.length) : 48;
+
+  const totalAccuracy = modeKnowledge.reduce((acc, k) => acc + k.accuracy, 0);
+  const avgAccuracy = modeKnowledge.length > 0 ? Math.round(totalAccuracy / modeKnowledge.length) : 62;
+
+  const calibration = getConfidenceCalibration(modeKnowledge.length > 0 ? modeKnowledge : knowledgeList);
   const overconfidentCount = calibration.filter((c) => c.quadrant === 'Overconfident').length;
   const calibrationStatus =
     overconfidentCount > 0
@@ -50,8 +89,8 @@ export async function GET(req: NextRequest) {
       ? 'Well-Calibrated'
       : 'Calibrating';
 
-  // Weak areas (sorted by lowest mastery among attempted or needs review)
-  const weakAreas = knowledgeList
+  // Weak areas
+  const weakAreas = (modeKnowledge.length > 0 ? modeKnowledge : knowledgeList)
     .filter((k) => k.status === 'NEEDS_REVIEW' || (k.attempts > 0 && k.masteryScore < 60))
     .sort((a, b) => a.masteryScore - b.masteryScore)
     .map((k) => {
@@ -67,10 +106,15 @@ export async function GET(req: NextRequest) {
       };
     });
 
-  // Target Continue Learning item: either the active misconception concept or next action concept
-  const targetConceptId = activeMisconceptions.length > 0 ? activeMisconceptions[0].conceptId : nextAction.conceptId;
-  const targetConcept = CONCEPTS.find((c) => c.id === targetConceptId) || CONCEPTS[0];
-  const targetKnowledge = knowledgeList.find((k) => k.conceptId === targetConceptId);
+  // Target Continue Learning item
+  const targetConceptId =
+    activeMisconceptions.length > 0
+      ? activeMisconceptions[0].conceptId
+      : nextAction.conceptId;
+
+  const targetConcept =
+    CONCEPTS.find((c) => c.id === targetConceptId) || relevantConcepts[0] || CONCEPTS[0];
+  const targetKnowledge = knowledgeList.find((k) => k.conceptId === targetConcept.id);
 
   const continueLearning = {
     conceptId: targetConcept.id,
@@ -83,44 +127,102 @@ export async function GET(req: NextRequest) {
     hasActiveMisconception: activeMisconceptions.some((m) => m.conceptId === targetConcept.id),
   };
 
-  // Today's Plan items
-  const todaysPlan = [
-    {
-      id: 1,
-      title: activeMisconceptions.length > 0 ? `Review ${targetConcept.title} Misconception` : 'Targeted Concept Review',
-      type: 'misconception',
-      completed: activeMisconceptions.length === 0,
-      link: `/learn/${targetConcept.id}`,
-    },
-    {
-      id: 2,
-      title: 'Watch recommended pedagogical video lesson',
-      type: 'video',
-      completed: false,
-      link: `/learn/${targetConcept.id}#videos`,
-    },
-    {
-      id: 3,
-      title: 'Complete 5 adaptive diagnostic questions',
-      type: 'quiz',
-      completed: false,
-      link: `/learn/${targetConcept.id}#assessment`,
-    },
-    {
-      id: 4,
-      title: 'Practice Scope & Variable Lifetimes',
-      type: 'practice',
-      completed: false,
-      link: '/learn/py-scope',
-    },
-    {
-      id: 5,
-      title: 'Spaced repetition revision on Control Flow',
-      type: 'revision',
-      completed: true,
-      link: '/learn/py-control',
-    },
-  ];
+  // Mode-Specific Today's Plan
+  let todaysPlan = [];
+  if (preparationMode === 'JEE') {
+    todaysPlan = [
+      {
+        id: 1,
+        title: 'Physics Mechanics: Kinematics 2D Relative Velocity',
+        type: 'practice',
+        completed: false,
+        link: '/learn/jee-kinematics',
+      },
+      {
+        id: 2,
+        title: "Newton's 3rd Law Free Body Diagram traps revision",
+        type: 'revision',
+        completed: false,
+        link: '/learn/jee-newton',
+      },
+      {
+        id: 3,
+        title: 'Solve 10 timed JEE Main level multiple-choice questions',
+        type: 'quiz',
+        completed: false,
+        link: '/learn/jee-kinematics#assessment',
+      },
+      {
+        id: 4,
+        title: 'Mathematics: Quadratic Equations discriminant analysis',
+        type: 'practice',
+        completed: true,
+        link: '/learn/py-vars',
+      },
+    ];
+  } else if (preparationMode === 'ENGINEERING') {
+    todaysPlan = [
+      {
+        id: 1,
+        title: activeMisconceptions.length > 0 ? `Review ${targetConcept.title} Misconception` : 'Unit 3: Function Parameters & Return Stack Frames',
+        type: 'misconception',
+        completed: activeMisconceptions.length === 0,
+        link: `/learn/${targetConcept.id}`,
+      },
+      {
+        id: 2,
+        title: 'Watch Programming for Problem Solving targeted lesson',
+        type: 'video',
+        completed: false,
+        link: `/learn/${targetConcept.id}#videos`,
+      },
+      {
+        id: 3,
+        title: 'Complete 5 adaptive diagnostic questions for PPS Lab',
+        type: 'quiz',
+        completed: false,
+        link: `/learn/${targetConcept.id}#assessment`,
+      },
+      {
+        id: 4,
+        title: 'Matrices & Calculus: Review Row Echelon Form & Rank',
+        type: 'practice',
+        completed: false,
+        link: '/syllabus',
+      },
+      {
+        id: 5,
+        title: 'Operating Systems: Process Control Blocks & fork() semantics',
+        type: 'revision',
+        completed: true,
+        link: '/learn/btech-os-processes',
+      },
+    ];
+  } else {
+    todaysPlan = [
+      {
+        id: 1,
+        title: `Core Concept: ${targetConcept.title}`,
+        type: 'practice',
+        completed: false,
+        link: `/learn/${targetConcept.id}`,
+      },
+      {
+        id: 2,
+        title: 'Watch recommended pedagogical video lesson',
+        type: 'video',
+        completed: false,
+        link: `/learn/${targetConcept.id}#videos`,
+      },
+      {
+        id: 3,
+        title: 'Solve diagnostic practice quiz',
+        type: 'quiz',
+        completed: false,
+        link: `/learn/${targetConcept.id}#assessment`,
+      },
+    ];
+  }
 
   // Dynamic AI Insight
   let aiInsight =
@@ -128,17 +230,23 @@ export async function GET(req: NextRequest) {
   if (activeMisconceptions.length > 0) {
     aiInsight = `Pedagogical Alert: ${activeMisconceptions[0].description}`;
   } else if (weakAreas.length === 0) {
-    aiInsight = 'Outstanding calibration! Your accuracy and confidence are tightly aligned across all modules.';
+    aiInsight = 'Outstanding calibration! Your accuracy and confidence are tightly aligned across all syllabus modules.';
   }
 
-  // Recommended YouTube videos for current target concept
-  const recommendedVideos = await searchEducationalVideos(
-    `${targetConcept.title} python functions`,
-    targetConcept.id
-  );
+  // Mode-Aware YouTube Query (Section 34, 35 Requirement)
+  let youtubeQuery = `${targetConcept.title} tutorial`;
+  if (preparationMode === 'JEE') {
+    youtubeQuery = `JEE Physics ${targetConcept.title} concept explanation`;
+  } else if (preparationMode === 'ENGINEERING') {
+    youtubeQuery = `B.Tech ${branchObj?.shortName || 'CSE'} ${targetConcept.title} tutorial`;
+  } else if (preparationMode === 'SKILL') {
+    youtubeQuery = `Python ${targetConcept.title} beginner tutorial`;
+  }
+
+  const recommendedVideos = await searchEducationalVideos(youtubeQuery, targetConcept.id);
 
   // Roadmap snapshot
-  const roadmap = CONCEPTS.filter((c) => c.track === targetConcept.track).map((c) => {
+  const roadmap = relevantConcepts.map((c) => {
     const k = knowledgeList.find((item) => item.conceptId === c.id);
     return {
       id: c.id,
@@ -153,6 +261,22 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     greeting,
     userName: session.name,
+    preparationMode,
+    profile: {
+      university: profile?.university || 'JNTUH',
+      college: profile?.schoolCollege || 'Narsimha Reddy Engineering College',
+      branch: branchObj?.name || profile?.branch || 'Computer Science and Engineering',
+      branchShort: branchObj?.shortName || 'CSE',
+      regulation: profile?.regulation || 'R25',
+      year: profile?.year || '1st Year',
+      semester: profile?.semester || 'Semester 1',
+      targetExam: profile?.targetExam || 'JEE Main 2026',
+      targetExamYear: profile?.targetExamYear || '2026',
+      board: profile?.board || 'CBSE',
+      currentClass: profile?.currentClass || '12th Standard',
+      selectedSkill: profile?.selectedSkill || 'Python',
+    },
+    engineeringSyllabus,
     continueLearning,
     learningHealth: {
       overallMastery: avgMastery,

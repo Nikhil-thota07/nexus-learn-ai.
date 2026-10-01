@@ -17,17 +17,33 @@ export interface UserRecord {
 export interface ProfileRecord {
   id: string;
   userId: string;
+  preparationMode?: 'JEE' | 'ENGINEERING' | 'SCHOOL' | 'SKILL';
   educationLevel?: string;
   qualification?: string;
   schoolCollege?: string;
   university?: string;
   branch?: string;
+  branchId?: string;
+  customBranch?: string;
   year?: string;
   semester?: string;
   regulation?: string;
-  subjects?: string;
-  careerInterests?: string;
+  syllabusId?: string;
+  syllabusVersion?: string;
+  syllabusSource?: string;
   targetExam?: string;
+  targetExamYear?: string;
+  currentClass?: string;
+  board?: string;
+  schoolClass?: string;
+  selectedSkill?: string;
+  currentPreparationLevel?: string;
+  subjects?: string;
+  currentSubjectId?: string;
+  currentTopicId?: string;
+  careerInterests?: string;
+  primaryGoal?: string;
+  secondaryGoal?: string;
   preferredLanguage?: string;
   dailyStudyMinutes?: number;
   preferredStyle?: string;
@@ -129,7 +145,56 @@ function ensureStorage(): DatabaseSchema {
 
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    return JSON.parse(raw);
+    const parsed: DatabaseSchema = JSON.parse(raw);
+    
+    // Automatic Migration: preserve all user data while upgrading schema
+    let needsSave = false;
+    if (parsed.profiles) {
+      parsed.profiles.forEach((p) => {
+        if (!p.preparationMode) {
+          if (p.educationLevel === 'High School' || p.targetExam?.toLowerCase().includes('jee')) {
+            p.preparationMode = 'JEE';
+          } else {
+            p.preparationMode = 'ENGINEERING';
+          }
+          needsSave = true;
+        }
+
+        if (p.branch && (p.branch.includes('Computer Science & Engineering') || p.branch.toLowerCase() === 'cse')) {
+          p.branchId = 'cse';
+          p.branch = 'Computer Science and Engineering';
+          needsSave = true;
+        } else if (p.branch && !p.branchId) {
+          p.branchId = 'cse';
+          needsSave = true;
+        }
+
+        if (!p.regulation) {
+          p.regulation = 'R25';
+          needsSave = true;
+        }
+        if (!p.year) {
+          p.year = '1st Year';
+          needsSave = true;
+        }
+        if (!p.semester) {
+          p.semester = 'Semester 1';
+          needsSave = true;
+        }
+        if (!p.syllabusId && p.preparationMode === 'ENGINEERING') {
+          p.syllabusId = 'JNTUH-R25-CSE-Y1-S1';
+          p.syllabusVersion = 'R25.1.0';
+          p.syllabusSource = 'OFFICIAL_UNIVERSITY';
+          needsSave = true;
+        }
+      });
+    }
+
+    if (needsSave) {
+      saveStorage(parsed);
+    }
+
+    return parsed;
   } catch (err) {
     const initialData: DatabaseSchema = {
       users: [],
@@ -245,6 +310,13 @@ export function seedStudentKnowledgeState(studentId: string) {
 // Database client abstraction
 export const db = {
   user: {
+    findMany: async ({ where }: { where?: Partial<UserRecord> } = {}) => {
+      const store = ensureStorage();
+      if (!where || Object.keys(where).length === 0) return store.users;
+      return store.users.filter((u) => {
+        return Object.entries(where).every(([key, val]) => (u as any)[key] === val);
+      });
+    },
     findUnique: async ({ where }: { where: { email?: string; id?: string } }) => {
       const store = ensureStorage();
       if (where.email) {
@@ -286,6 +358,13 @@ export const db = {
   },
 
   studentProfile: {
+    findMany: async ({ where }: { where?: Partial<ProfileRecord> } = {}) => {
+      const store = ensureStorage();
+      if (!where || Object.keys(where).length === 0) return store.profiles;
+      return store.profiles.filter((p) => {
+        return Object.entries(where).every(([key, val]) => (p as any)[key] === val);
+      });
+    },
     findUnique: async ({ where }: { where: { userId: string } }) => {
       const store = ensureStorage();
       return store.profiles.find((p) => p.userId === where.userId) || null;
@@ -419,6 +498,39 @@ export const db = {
       store.misconceptions.push(newMisc);
       saveStorage(store);
       return newMisc;
+    },
+  },
+
+  attempt: {
+    findMany: async ({ where }: { where: { studentId: string; conceptId?: string } }) => {
+      const store = ensureStorage();
+      return store.attempts.filter(
+        (a) =>
+          a.studentId === where.studentId &&
+          (!where.conceptId || a.conceptId === where.conceptId)
+      );
+    },
+    create: async (args: { studentId?: string; conceptId?: string; questionId?: string; questionText?: string; selectedAnswer?: string; correctAnswer?: string; isCorrect?: boolean; confidenceScore?: number; timeSpentSeconds?: number; detectedMisconception?: string | null; data?: Omit<AttemptRecord, 'id' | 'createdAt'> }) => {
+      const store = ensureStorage();
+      const id = `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const recordData = args.data || (args as Omit<AttemptRecord, 'id' | 'createdAt'>);
+      const newAtt: AttemptRecord = {
+        id,
+        studentId: recordData.studentId || '',
+        conceptId: recordData.conceptId || '',
+        questionId: recordData.questionId || '',
+        questionText: recordData.questionText || '',
+        selectedAnswer: recordData.selectedAnswer || '',
+        correctAnswer: recordData.correctAnswer || '',
+        isCorrect: recordData.isCorrect ?? true,
+        confidenceScore: recordData.confidenceScore || 50,
+        timeSpentSeconds: recordData.timeSpentSeconds || 60,
+        detectedMisconception: recordData.detectedMisconception || null,
+        createdAt: new Date().toISOString(),
+      };
+      store.attempts.push(newAtt);
+      saveStorage(store);
+      return newAtt;
     },
   },
 

@@ -7,7 +7,6 @@ import {
   BrainCircuit,
   ArrowRight,
   Sparkles,
-  Flame,
   CheckCircle2,
   AlertTriangle,
   PlayCircle,
@@ -22,7 +21,13 @@ import {
   BarChart2,
   RefreshCw,
   ExternalLink,
+  GraduationCap,
+  Atom,
+  Binary,
+  Layers,
+  FileText,
 } from 'lucide-react';
+import { PreparationMode } from '@/types';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -90,6 +95,9 @@ export default function DashboardPage() {
   const {
     greeting,
     userName,
+    preparationMode,
+    profile,
+    engineeringSyllabus,
     continueLearning,
     learningHealth,
     todaysPlan,
@@ -100,34 +108,204 @@ export default function DashboardPage() {
     activeMisconceptions,
   } = data;
 
+  // Title by Mode (Section 46 Requirement)
+  const dashboardTitle =
+    preparationMode === 'JEE'
+      ? 'Your JEE Learning Path'
+      : preparationMode === 'ENGINEERING'
+      ? 'Your Engineering Learning Path'
+      : preparationMode === 'SCHOOL'
+      ? 'Your School Learning Path'
+      : 'Your Skill Learning Path';
+
+  const modeBadge =
+    preparationMode === 'JEE'
+      ? { label: '🎯 JEE Preparation', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+      : preparationMode === 'ENGINEERING'
+      ? { label: '🎓 B.Tech Engineering', color: 'bg-blue-50 text-blue-800 border-blue-200' }
+      : preparationMode === 'SCHOOL'
+      ? { label: '📚 School Learning', color: 'bg-purple-50 text-purple-800 border-purple-200' }
+      : { label: '💻 Skill Development', color: 'bg-amber-50 text-amber-800 border-amber-200' };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* 1. TOP GREETING & STATUS BANNER */}
+      {/* 1. TOP GREETING & MODE BANNER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${modeBadge.color}`}>
+              {modeBadge.label}
+            </span>
+            <Link
+              href="/profile"
+              className="text-xs text-primary font-semibold hover:underline"
+            >
+              Change Mode
+            </Link>
+          </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-main tracking-tight">
-            {greeting}
+            {dashboardTitle} &bull; {greeting}
           </h1>
           <p className="text-sm text-subtle mt-1">
-            "Your learning path should know you." Here is your dynamic mastery status today.
+            {preparationMode === 'ENGINEERING' && profile ? (
+              <span>
+                Enrolled at <strong>{profile.college}</strong> ({profile.university}) &bull;{' '}
+                <strong>{profile.branch}</strong> ({profile.regulation}) &bull; {profile.year}, {profile.semester}
+              </span>
+            ) : preparationMode === 'JEE' ? (
+              <span>
+                Targeting <strong>{profile.targetExam}</strong> &bull; Class: {profile.currentClass}
+              </span>
+            ) : (
+              <span>
+                "Your learning path should know you." Here is your dynamic mastery status today.
+              </span>
+            )}
           </p>
         </div>
+
         <div className="flex items-center gap-3">
+          <Link
+            href="/tutor"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-primary rounded-xl hover:bg-primary-700 shadow-subtle transition"
+          >
+            <BrainCircuit className="w-4 h-4" />
+            <span>AI Academic Tutor</span>
+          </Link>
           <button
             onClick={fetchDashboard}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-subtle hover:text-main bg-white border border-border rounded-lg hover:bg-slate-50 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-subtle hover:text-main bg-white border border-border rounded-xl hover:bg-slate-50 transition"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Recalibrate Engine</span>
+            <span>Recalibrate</span>
           </button>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-lg">
-            <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-            <span>Model Active: Bayesian DKT</span>
-          </div>
         </div>
       </div>
 
-      {/* 2. CONTINUE LEARNING HERO CARD */}
+      {/* 2. MODE-SPECIFIC HIGHLIGHT CARDS */}
+      {/* 2A: ENGINEERING OFFICIAL SYLLABUS SUBJECTS */}
+      {preparationMode === 'ENGINEERING' && engineeringSyllabus && (
+        <div className="nexus-card p-6 space-y-4 border-indigo-100 bg-gradient-to-r from-slate-50 via-indigo-50/20 to-white">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-secondary" />
+              <h3 className="font-bold text-main text-base">
+                Official Syllabus Subjects &bull; {engineeringSyllabus.university} ({engineeringSyllabus.regulation})
+              </h3>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-subtle">
+              <span className="font-mono bg-white px-2 py-0.5 rounded border border-border">
+                {engineeringSyllabus.id}
+              </span>
+              <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                Verified Source
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {engineeringSyllabus.subjects.map((sub: any) => (
+              <div
+                key={sub.id}
+                className="p-4 bg-white rounded-xl border border-border shadow-subtle flex flex-col justify-between hover:border-primary/40 transition"
+              >
+                <div>
+                  <div className="flex items-center justify-between text-[11px] mb-1">
+                    <span className="font-mono font-bold text-subtle">{sub.code}</span>
+                    <span className="text-[10px] font-semibold text-primary bg-primary-50 px-1.5 py-0.5 rounded">
+                      {sub.credits} Credits
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-sm text-main line-clamp-1">{sub.name}</h4>
+                  <p className="text-xs text-subtle mt-1">
+                    Category: {sub.category}
+                    {sub.programmingLanguage && (
+                      <span className="ml-1 text-indigo-600 font-semibold">
+                        ({sub.programmingLanguage})
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="pt-3 flex items-center justify-between text-xs">
+                  <span className="text-[11px] text-emerald-600 font-semibold">
+                    {sub.units?.length || 5} Units Active
+                  </span>
+                  <Link
+                    href={`/syllabus`}
+                    className="font-bold text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Inspect</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 2B: JEE THREE-PILLAR TRACKER */}
+      {preparationMode === 'JEE' && (
+        <div className="nexus-card p-6 space-y-4 bg-gradient-to-r from-emerald-50/30 via-white to-blue-50/30 border-emerald-200">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-emerald-700" />
+              <h3 className="font-bold text-main text-base">
+                JEE Main & Advanced Subject Mastery
+              </h3>
+            </div>
+            <span className="text-xs font-bold text-emerald-800 bg-emerald-100/60 px-2.5 py-0.5 rounded-full">
+              Official NTA Syllabus
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 bg-white rounded-xl border border-border space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  <Atom className="w-4 h-4 text-primary" />
+                  <span>Physics (Mechanics & Electrodynamics)</span>
+                </span>
+                <span className="text-xs font-mono font-bold text-primary">68%</span>
+              </div>
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-primary h-full" style={{ width: '68%' }} />
+              </div>
+              <p className="text-[11px] text-subtle">Target: Kinematics 2D & Newton's 3rd Law FBD</p>
+            </div>
+
+            <div className="p-4 bg-white rounded-xl border border-border space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  <Binary className="w-4 h-4 text-emerald-600" />
+                  <span>Mathematics (Calculus & Algebra)</span>
+                </span>
+                <span className="text-xs font-mono font-bold text-emerald-600">74%</span>
+              </div>
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full" style={{ width: '74%' }} />
+              </div>
+              <p className="text-[11px] text-subtle">Target: Quadratic Equations & Sequences</p>
+            </div>
+
+            <div className="p-4 bg-white rounded-xl border border-border space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  <Layers className="w-4 h-4 text-secondary" />
+                  <span>Chemistry (Physical & Organic)</span>
+                </span>
+                <span className="text-xs font-mono font-bold text-secondary">55%</span>
+              </div>
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-secondary h-full" style={{ width: '55%' }} />
+              </div>
+              <p className="text-[11px] text-subtle">Target: Mole Concept & Chemical Bonding</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. CONTINUE LEARNING HERO CARD */}
       <div className="nexus-card p-6 sm:p-8 bg-gradient-to-r from-blue-50/70 via-indigo-50/30 to-white border-primary/20 shadow-card">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
@@ -202,7 +380,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 3. LEARNING HEALTH METRICS (6 Grid Items) */}
+      {/* 4. LEARNING HEALTH METRICS (6 Grid Items) */}
       <div>
         <h3 className="text-base font-bold text-main mb-4 flex items-center gap-2">
           <Award className="w-4 h-4 text-primary" />
@@ -226,7 +404,7 @@ export default function DashboardPage() {
 
           <div className="nexus-card p-4">
             <span className="text-[11px] font-semibold text-subtle uppercase tracking-wider block mb-1">
-              Accuracy
+              Assessment Accuracy
             </span>
             <div className="text-2xl font-extrabold text-main font-mono">
               {learningHealth.accuracy}%
@@ -239,354 +417,230 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="nexus-card p-4">
+          <div className="nexus-card p-4 col-span-2 sm:col-span-1">
             <span className="text-[11px] font-semibold text-subtle uppercase tracking-wider block mb-1">
-              Calibration
+              Confidence Calibration
             </span>
-            <div className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded mt-1 truncate">
+            <div className="text-xs font-bold text-primary truncate" title={learningHealth.confidenceCalibration}>
               {learningHealth.confidenceCalibration}
             </div>
-            <span className="text-[10px] text-subtle block mt-2">
-              Accuracy vs Confidence
-            </span>
+            <p className="text-[10px] text-subtle mt-1.5">Metacognition Matrix</p>
           </div>
 
-          <div className="nexus-card p-4">
-            <span className="text-[11px] font-semibold text-subtle uppercase tracking-wider block mb-1">
-              Current Streak
-            </span>
-            <div className="text-2xl font-extrabold text-amber-600 flex items-center gap-1">
-              <Flame className="w-5 h-5 fill-amber-500" />
-              <span>{learningHealth.currentStreakDays} Days</span>
+          <Link
+            href="/misconceptions"
+            className="nexus-card p-4 hover:border-rose-300 hover:shadow-subtle transition block group"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-semibold text-rose-800 uppercase tracking-wider">
+                Misconception Radar
+              </span>
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600 group-hover:scale-110 transition" />
             </div>
-            <span className="text-[10px] text-subtle block mt-1">Consistent Daily Study</span>
-          </div>
+            <div className="text-2xl font-extrabold text-rose-700 font-mono flex items-center gap-1.5">
+              <span>{activeMisconceptions?.length ?? 1}</span>
+              <span className="text-xs font-semibold text-subtle">Flagged</span>
+            </div>
+            <p className="text-[10px] text-rose-600 font-medium mt-1 group-hover:underline">
+              {activeMisconceptions && activeMisconceptions.length > 0
+                ? 'Resolve diagnostic traps →'
+                : 'All mental models verified ✓'}
+            </p>
+          </Link>
 
           <div className="nexus-card p-4">
             <span className="text-[11px] font-semibold text-subtle uppercase tracking-wider block mb-1">
               Mastered
             </span>
-            <div className="text-2xl font-extrabold text-success font-mono">
+            <div className="text-2xl font-extrabold text-emerald-600 font-mono">
               {learningHealth.conceptsMastered}
             </div>
-            <span className="text-[10px] text-subtle block mt-1">Concepts &gt; 75% threshold</span>
+            <p className="text-[10px] text-subtle mt-1">Concepts &gt; 75%</p>
           </div>
 
           <div className="nexus-card p-4">
             <span className="text-[11px] font-semibold text-subtle uppercase tracking-wider block mb-1">
-              Need Attention
+              Needs Attention
             </span>
             <div className="text-2xl font-extrabold text-amber-600 font-mono">
               {learningHealth.conceptsNeedingAttention}
             </div>
-            <span className="text-[10px] text-subtle block mt-1">Active review flags</span>
+            <p className="text-[10px] text-subtle mt-1">Review Flagged</p>
           </div>
         </div>
       </div>
 
-      {/* 4. TODAY'S PLAN & AI INSIGHT (Two Columns) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Today's Plan */}
-        <div className="lg:col-span-2 nexus-card p-6 space-y-4">
+      {/* 5. TODAY'S PLAN & DYNAMIC AI INSIGHT */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="nexus-card p-6 lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">
-            <h3 className="font-bold text-main text-base flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
-              <span>Today's Plan (Dynamic Action Queue)</span>
-            </h3>
-            <span className="text-xs font-semibold text-subtle">
-              {todaysPlan.filter((p: any) => p.completed).length} of {todaysPlan.length} completed
-            </span>
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" />
+              <h3 className="font-bold text-main text-base">Today's Adaptive Plan</h3>
+            </div>
+            <span className="text-xs text-subtle">Calibrated to 90 min daily goal</span>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {todaysPlan.map((item: any) => (
-              <Link
+              <div
                 key={item.id}
-                href={item.link}
-                className={`flex items-center justify-between p-3.5 rounded-xl border transition ${
-                  item.completed
-                    ? 'bg-slate-50 border-slate-200 text-subtle'
-                    : 'bg-white border-border hover:border-primary/50 text-main shadow-subtle'
-                }`}
+                className="flex items-center justify-between p-3.5 rounded-xl border border-border hover:bg-slate-50 transition"
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                       item.completed
-                        ? 'bg-emerald-100 text-emerald-600'
-                        : 'border border-slate-300 text-transparent'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-primary-50 text-primary border border-primary/20'
                     }`}
                   >
-                    <Check className="w-3.5 h-3.5" />
+                    {item.completed ? <Check className="w-3.5 h-3.5" /> : item.id}
                   </div>
-                  <div>
-                    <span
-                      className={`text-sm font-semibold ${
-                        item.completed ? 'line-through text-subtle' : 'text-main'
-                      }`}
-                    >
-                      {item.title}
-                    </span>
-                    <span className="block text-[11px] text-subtle uppercase tracking-wider font-bold">
-                      {item.type}
-                    </span>
-                  </div>
+                  <span
+                    className={`text-sm ${
+                      item.completed ? 'line-through text-subtle' : 'font-medium text-main'
+                    }`}
+                  >
+                    {item.title}
+                  </span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              </Link>
+                <Link
+                  href={item.link}
+                  className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <span>Start</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* AI Insight Box */}
-        <div className="nexus-card p-6 flex flex-col justify-between bg-gradient-to-b from-indigo-50/50 to-white border-secondary/20">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-secondary text-white flex items-center justify-center">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="font-bold text-main text-sm">AI Pedagogical Insight</h4>
-                <span className="text-[10px] text-subtle font-mono">Cognitive Diagnosis</span>
-              </div>
+        {/* AI Insight Card */}
+        <div className="nexus-card p-6 bg-gradient-to-br from-indigo-50/50 to-blue-50/30 border-secondary/20 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-secondary">
+              <Sparkles className="w-5 h-5" />
+              <h3 className="font-bold text-base">AI Pedagogical Insight</h3>
             </div>
-
-            <div className="p-4 bg-white rounded-xl border border-secondary/20 shadow-subtle text-xs sm:text-sm text-main leading-relaxed mb-4">
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
               "{aiInsight}"
-            </div>
-
-            <p className="text-xs text-subtle leading-relaxed">
-              Nexus Learn AI detects false confidence before it propagates into downstream dependencies like Variable Scope and Recursion.
             </p>
           </div>
 
-          <div className="pt-4 border-t border-border mt-4">
+          <div className="pt-6 border-t border-secondary/10 flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-subtle">
+              Engine: Nexus Cognitive Graph
+            </span>
             <Link
-              href="/misconceptions"
-              className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-secondary text-white text-xs font-bold rounded-lg hover:bg-secondary-700 transition"
+              href="/tutor"
+              className="text-xs font-bold text-secondary hover:underline inline-flex items-center gap-1"
             >
-              <span>Resolve Active Misconception</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>Consult AI Tutor</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
       </div>
 
-      {/* 5. WEAK AREAS (Precise percentage breakdown) */}
-      <div className="nexus-card p-6">
-        <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-          <div>
-            <h3 className="font-bold text-main text-base flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-              <span>Precise Weak Areas (Targeted Remediation Queue)</span>
-            </h3>
-            <p className="text-xs text-subtle mt-0.5">
-              Identified through multiple diagnostic signals, not single question noise.
-            </p>
-          </div>
-          <Link
-            href="/analytics"
-            className="text-xs font-bold text-primary hover:underline"
-          >
-            View Full Calibration Matrix &rarr;
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {weakAreas.length > 0 ? (
-            weakAreas.map((weak: any) => (
-              <div
-                key={weak.conceptId}
-                className="p-4 rounded-xl border border-border bg-slate-50/50 hover:bg-slate-50 transition space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-main truncate max-w-[150px]">
-                    {weak.title}
-                  </span>
-                  <span className="text-xs font-mono font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                    {weak.masteryScore}%
-                  </span>
-                </div>
-                <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${
-                      weak.masteryScore < 35
-                        ? 'bg-red-500'
-                        : weak.masteryScore < 50
-                        ? 'bg-amber-500'
-                        : 'bg-primary'
-                    }`}
-                    style={{ width: `${weak.masteryScore}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-subtle pt-1">
-                  <span>Accuracy: {weak.accuracy}%</span>
-                  <span>Confidence: {weak.confidence}%</span>
-                </div>
-                <Link
-                  href={`/learn/${weak.conceptId}`}
-                  className="block text-center text-xs font-bold text-primary hover:underline pt-2 border-t border-border/60"
-                >
-                  Targeted Practice &rarr;
-                </Link>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-4 text-center py-6 text-xs text-subtle">
-              No critical weak areas identified! All attempted concepts maintain mastery above threshold.
+      {/* 6. WEAK AREAS & RECOMMENDED YOUTUBE LESSONS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Precise Weak Areas */}
+        <div className="nexus-card p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <h3 className="font-bold text-main text-base">Specific Learning Gaps</h3>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* 6. RECOMMENDED EDUCATIONAL VIDEOS (Real YouTube Integration) */}
-      <div className="nexus-card p-6">
-        <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-          <div>
-            <h3 className="font-bold text-main text-base flex items-center gap-2">
-              <PlayCircle className="w-4 h-4 text-danger" />
-              <span>Recommended Educational Videos (YouTube Data API v3)</span>
-            </h3>
-            <p className="text-xs text-subtle mt-0.5">
-              Aggressively cached server-side to conserve quota. Curated specifically for weak areas.
-            </p>
+            <span className="text-xs text-subtle">Prioritized by Bayesian uncertainty</span>
           </div>
-          <span className="text-[11px] font-mono text-subtle bg-slate-100 px-2.5 py-1 rounded">
-            Region: IN | Lang: EN
-          </span>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recommendedVideos.map((video: any) => (
-            <div
-              key={video.id}
-              className="rounded-xl border border-border overflow-hidden bg-white hover:shadow-card transition flex flex-col justify-between"
-            >
-              <div>
-                <div className="relative aspect-video bg-slate-900 group">
-                  <img
-                    src={video.thumbnailUrl}
-                    alt={video.title}
-                    className="w-full h-full object-cover group-hover:opacity-90 transition"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
-                      <PlayCircle className="w-7 h-7" />
+          <div className="space-y-3">
+            {weakAreas.length > 0 ? (
+              weakAreas.map((area: any) => (
+                <div
+                  key={area.conceptId}
+                  className="p-3.5 rounded-xl border border-border bg-white flex items-center justify-between hover:bg-slate-50 transition"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-main">{area.title}</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                        {area.masteryScore}% Mastery
+                      </span>
                     </div>
+                    <p className="text-xs text-subtle">
+                      Accuracy: {area.accuracy}% &bull; Confidence: {area.confidence}% &bull;{' '}
+                      {area.status}
+                    </p>
                   </div>
-                  {video.duration && (
-                    <span className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
-                      {video.duration}
-                    </span>
-                  )}
-                </div>
-                <div className="p-4 space-y-1.5">
-                  <h4 className="font-bold text-main text-sm line-clamp-2 leading-snug">
-                    {video.title}
-                  </h4>
-                  <p className="text-xs text-subtle line-clamp-2">
-                    {video.description}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 pt-0 border-t border-border/50 flex items-center justify-between text-xs text-subtle">
-                <span className="font-semibold text-slate-700">{video.channelTitle}</span>
-                <a
-                  href={`https://www.youtube.com/watch?v=${video.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                >
-                  <span>Watch on YouTube</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 7. LEARNING ROADMAP (Prerequisite DAG Snapshot) */}
-      <div className="nexus-card p-6">
-        <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-          <div>
-            <h3 className="font-bold text-main text-base flex items-center gap-2">
-              <Compass className="w-4 h-4 text-primary" />
-              <span>Current Learning Roadmap</span>
-            </h3>
-            <p className="text-xs text-subtle mt-0.5">
-              Prerequisite progression graph. Advanced topics unlock only when foundations are verified.
-            </p>
-          </div>
-          <Link
-            href="/roadmap"
-            className="text-xs font-bold text-primary hover:underline"
-          >
-            Explore Full Interactive DAG Graph &rarr;
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {roadmap.map((item: any, idx: number) => {
-            const isMastered = item.status === 'MASTERED';
-            const isNeedsReview = item.status === 'NEEDS_REVIEW';
-            const isLearning = item.status === 'LEARNING';
-            return (
-              <div
-                key={item.id}
-                className={`p-4 rounded-xl border relative transition ${
-                  isNeedsReview
-                    ? 'border-amber-300 bg-amber-50/30'
-                    : isMastered
-                    ? 'border-emerald-200 bg-emerald-50/20'
-                    : isLearning
-                    ? 'border-primary/40 bg-blue-50/20'
-                    : 'border-border bg-slate-50/40 text-subtle'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono font-bold text-subtle">
-                    STEP {item.order}
-                  </span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      isNeedsReview
-                        ? 'bg-amber-100 text-amber-800'
-                        : isMastered
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : isLearning
-                        ? 'bg-primary-100 text-primary-800'
-                        : 'bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {item.status}
-                  </span>
-                </div>
-                <h4 className="font-bold text-main text-sm mb-2">{item.title}</h4>
-                <div className="flex items-center justify-between text-xs text-subtle mb-1">
-                  <span>Mastery</span>
-                  <span className="font-mono font-bold text-main">{item.masteryScore}%</span>
-                </div>
-                <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${
-                      isNeedsReview ? 'bg-amber-500' : isMastered ? 'bg-success' : 'bg-primary'
-                    }`}
-                    style={{ width: `${item.masteryScore}%` }}
-                  />
-                </div>
-                <div className="mt-3 text-right">
                   <Link
-                    href={`/learn/${item.id}`}
-                    className="text-xs font-bold text-primary hover:underline"
+                    href={`/learn/${area.conceptId}`}
+                    className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
                   >
-                    Open &rarr;
+                    <span>Remediate</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
+              ))
+            ) : (
+              <p className="text-xs text-subtle p-4 text-center">
+                All attempted concepts currently exceed your target mastery threshold!
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Recommended YouTube Lessons (Mode-Aware) */}
+        <div className="nexus-card p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <PlayCircle className="w-5 h-5 text-danger" />
+              <h3 className="font-bold text-main text-base">Recommended Educational Videos</h3>
+            </div>
+            <span className="text-xs text-subtle font-mono">Server-side Cached Integration</span>
+          </div>
+
+          <div className="space-y-3">
+            {recommendedVideos.slice(0, 3).map((vid: any) => (
+              <div
+                key={vid.id}
+                className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-slate-50 transition group"
+              >
+                <img
+                  src={vid.thumbnailUrl}
+                  alt={vid.title}
+                  className="w-24 h-16 object-cover rounded-lg bg-slate-900 flex-shrink-0"
+                />
+                <div className="space-y-1 flex-1 min-w-0">
+                  <a
+                    href={`https://www.youtube.com/watch?v=${vid.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-xs text-main hover:text-primary transition line-clamp-1 block"
+                  >
+                    {vid.title}
+                  </a>
+                  <p className="text-[11px] text-subtle line-clamp-2 leading-relaxed">
+                    {vid.description}
+                  </p>
+                  <div className="flex items-center justify-between text-[10px] text-subtle pt-1">
+                    <span>{vid.channelTitle}</span>
+                    <a
+                      href={`https://www.youtube.com/watch?v=${vid.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary font-semibold hover:underline inline-flex items-center gap-0.5"
+                    >
+                      <span>Watch</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </div>
     </div>

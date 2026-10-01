@@ -1,7 +1,27 @@
+export type PreparationMode = 'JEE' | 'ENGINEERING' | 'SCHOOL' | 'SKILL';
 export type EducationLevel = 'High School' | 'Undergraduate' | 'B.Tech' | 'Postgraduate' | 'Other';
 export type KnowledgeStatus = 'NOT_STARTED' | 'LEARNING' | 'NEEDS_REVIEW' | 'MASTERED';
 export type MisconceptionStatus = 'ACTIVE' | 'RESOLVED' | 'MONITORING';
 export type ActionType = 'Learn' | 'Review' | 'Practice' | 'Watch video' | 'Take assessment' | 'Fix misconception' | 'Skip mastered' | 'Unlock next';
+
+export type TutorIntent =
+  | 'EXPLANATION'
+  | 'DEFINITION'
+  | 'WHY'
+  | 'HOW'
+  | 'EXAMPLE'
+  | 'PRACTICE'
+  | 'HINT'
+  | 'SOLUTION'
+  | 'DEBUGGING'
+  | 'CODE_REQUEST'
+  | 'REVISION'
+  | 'COMPARISON'
+  | 'EXAM_PREPARATION'
+  | 'MISCONCEPTION'
+  | 'SYLLABUS_QUERY'
+  | 'STUDY_PLAN'
+  | 'CLARIFICATION_NEEDED';
 
 export interface User {
   id: string;
@@ -18,17 +38,44 @@ export interface User {
 export interface StudentProfile {
   id: string;
   userId: string;
+  // Core mode
+  preparationMode: PreparationMode;
   educationLevel?: string;
   qualification?: string;
+
+  // Engineering fields
   schoolCollege?: string;
   university?: string;
   branch?: string;
+  branchId?: string;
+  customBranch?: string;
   year?: string;
   semester?: string;
   regulation?: string;
-  subjects?: string[];
-  careerInterests?: string[];
+  syllabusId?: string;
+  syllabusVersion?: string;
+  syllabusSource?: string;
+
+  // JEE & School fields
   targetExam?: string;
+  targetExamYear?: string;
+  currentClass?: string;
+  board?: string;
+  schoolClass?: string;
+  currentPreparationLevel?: string;
+
+  // Skill fields
+  selectedSkill?: string;
+
+  // Subjects & Goals
+  subjects?: string[];
+  currentSubjectId?: string;
+  currentTopicId?: string;
+  careerInterests?: string[];
+  primaryGoal?: string;
+  secondaryGoal?: string;
+
+  // Learning preferences
   preferredLanguage: string;
   dailyStudyMinutes: number;
   preferredStyle: 'visual' | 'conceptual' | 'hands-on';
@@ -153,4 +200,27 @@ export interface CalibrationDataPoint {
   quadrant: 'Overconfident' | 'Underconfident' | 'Mastered' | 'Gap';
   attempts: number;
   status: KnowledgeStatus;
+}
+
+export interface PedagogicalTutorResponse {
+  intent: TutorIntent;
+  directAnswer: string;
+  intuition?: string;
+  codeSnippet?: {
+    language: string;
+    code: string;
+    explanation: string;
+  };
+  stepByStep?: string[];
+  commonMistake?: {
+    trap: string;
+    correction: string;
+  };
+  quickCheck?: {
+    question: string;
+    hint: string;
+    answer: string;
+  };
+  contextNote?: string;
+  clarificationPrompt?: string;
 }

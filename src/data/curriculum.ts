@@ -349,6 +349,122 @@ export const CONCEPTS: Concept[] = [
     ]
   },
 
+  // --- JEE CHEMISTRY TRACK ---
+  {
+    id: 'jee-chem-mole',
+    track: 'jee-chemistry',
+    trackName: 'JEE Chemistry',
+    module: 'Physical Chemistry',
+    slug: 'mole-concept-stoichiometry',
+    title: 'Mole Concept & Stoichiometry',
+    description: 'Avogadro number, molar mass, empirical formulas, limiting reagents, and redox titration stoichiometry.',
+    order: 1,
+    difficulty: 3,
+    masteryThreshold: 80,
+    prerequisiteIds: [],
+    dependentIds: ['jee-chem-bonding'],
+    keyTakeaways: [
+      '1 mole contains exactly 6.022 x 10^23 entities (Avogadro constant N_A).',
+      'The limiting reagent determines the maximum theoretical yield of products.',
+      'Molarity (M) varies with temperature, while Molality (m) is temperature independent.'
+    ],
+    commonMisconceptions: [
+      {
+        name: 'Limiting reagent has smaller initial mass',
+        description: 'Assuming the reactant with fewer grams is always the limiting reagent.',
+        correction: 'Limiting reagent is determined by molar ratio divided by stoichiometric coefficient, not raw mass.',
+        exampleIncorrect: '10g of H2 vs 50g of O2 -> H2 has less mass so it is limiting',
+        exampleCorrect: '10g H2 = 5 mol; 50g O2 = 1.56 mol. 2H2 + O2 -> 2H2O requires 2:1 ratio. O2 is limiting!'
+      }
+    ]
+  },
+  {
+    id: 'jee-chem-bonding',
+    track: 'jee-chemistry',
+    trackName: 'JEE Chemistry',
+    module: 'Inorganic Chemistry',
+    slug: 'chemical-bonding-vsepr',
+    title: 'Chemical Bonding & VSEPR Theory',
+    description: 'Ionic vs covalent bonding, dipole moments, hybridization (sp, sp2, sp3, sp3d), and molecular orbital theory.',
+    order: 2,
+    difficulty: 4,
+    masteryThreshold: 85,
+    prerequisiteIds: ['jee-chem-mole'],
+    dependentIds: [],
+    keyTakeaways: [
+      'VSEPR: Lone pair-lone pair repulsion > Lone pair-bond pair > Bond pair-bond pair.',
+      'Dipole moment is a vector quantity: net mu depends on geometric symmetry.',
+      'MOT predicts paramagnetism in O2 due to two unpaired electrons in pi* antibonding orbitals.'
+    ],
+    commonMisconceptions: [
+      {
+        name: 'Hybridization includes pi bonds',
+        description: 'Counting pi bonds in steric number calculation for hybridization.',
+        correction: 'Steric number only counts sigma bonds and localized lone pairs; unhybridized p orbitals form pi bonds.',
+        exampleIncorrect: 'Ethylene (C2H4) has 4 bonds on C so it is sp3',
+        exampleCorrect: 'Carbon has 3 sigma bonds + 0 lone pairs -> Steric number 3 -> sp2 hybridization.'
+      }
+    ]
+  },
+
+  // --- JEE MATHEMATICS TRACK ---
+  {
+    id: 'jee-math-quadratic',
+    track: 'jee-math',
+    trackName: 'JEE Mathematics',
+    module: 'Algebra',
+    slug: 'quadratic-equations-location-of-roots',
+    title: 'Quadratic Equations & Location of Roots',
+    description: 'Discriminant analysis, relation between roots and coefficients, common roots, and location of roots conditions.',
+    order: 1,
+    difficulty: 4,
+    masteryThreshold: 85,
+    prerequisiteIds: [],
+    dependentIds: ['jee-math-calculus'],
+    keyTakeaways: [
+      'For ax^2 + bx + c = 0: sum of roots alpha + beta = -b/a, product alpha * beta = c/a.',
+      'Roots are real and distinct iff D = b^2 - 4ac > 0.',
+      'Location of roots constraints combine D >= 0, sign of a*f(k), and position of vertex -b/(2a).'
+    ],
+    commonMisconceptions: [
+      {
+        name: 'D > 0 alone guarantees positive roots',
+        description: 'Assuming positive discriminant guarantees both roots are positive.',
+        correction: 'Both roots positive requires D >= 0 AND sum of roots > 0 AND product of roots > 0.',
+        exampleIncorrect: 'x^2 - x - 6 = 0 has D = 25 > 0, so roots must be positive.',
+        exampleCorrect: 'Roots are 3 and -2; one is negative because product c/a = -6 < 0.'
+      }
+    ]
+  },
+  {
+    id: 'jee-math-calculus',
+    track: 'jee-math',
+    trackName: 'JEE Mathematics',
+    module: 'Differential Calculus',
+    slug: 'limits-continuity-derivatives',
+    title: 'Limits, Continuity & L\'Hopital Rule',
+    description: 'Evaluation of standard limits, indeterminacies (0/0, inf/inf, 1^inf), continuity definitions, and differentiability.',
+    order: 2,
+    difficulty: 5,
+    masteryThreshold: 85,
+    prerequisiteIds: ['jee-math-quadratic'],
+    dependentIds: [],
+    keyTakeaways: [
+      'L\'Hopital\'s rule applies ONLY to indeterminate forms 0/0 and inf/inf.',
+      'Differentiability implies continuity, but continuity does NOT imply differentiability (e.g. |x| at x=0).',
+      'Standard limit: lim (x->0) sin(x)/x = 1 where x is in radians.'
+    ],
+    commonMisconceptions: [
+      {
+        name: 'Applying L\'Hopital when not indeterminate',
+        description: 'Differentiating numerator and denominator when the fraction does not yield 0/0 or inf/inf.',
+        correction: 'Always verify indeterminacy before taking derivatives.',
+        exampleIncorrect: 'lim (x->2) (x + 1)/(x + 2) -> (1)/(1) = 1 (Wrong!)',
+        exampleCorrect: 'Direct substitution yields 3/4; no indeterminacy exists.'
+      }
+    ]
+  },
+
   // --- ENGINEERING / B.TECH OPERATING SYSTEMS & DSA ---
   {
     id: 'btech-os-processes',

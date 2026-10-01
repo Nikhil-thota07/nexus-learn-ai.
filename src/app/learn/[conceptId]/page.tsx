@@ -47,39 +47,115 @@ export default function ConceptLearnPage() {
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
 
   useEffect(() => {
-    const foundConcept = CONCEPTS.find((c) => c.id === conceptId);
-    if (!foundConcept) {
-      setLoading(false);
-      return;
-    }
-    setConcept(foundConcept);
+    setLoading(true);
 
-    // Questions matching this concept
-    const matchedQuestions = DIAGNOSTIC_QUESTIONS.filter((q) => q.conceptId === conceptId);
-    setQuestions(matchedQuestions.length > 0 ? matchedQuestions : [DIAGNOSTIC_QUESTIONS[0]]);
+    fetch(`/api/concept/${conceptId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.concept) {
+          const c = data.concept;
+          setConcept({
+            id: c.id,
+            title: c.title,
+            description: c.description,
+            trackName: c.subjectName || 'Engineering Sciences',
+            module: `Unit ${c.unitNumber || 1}: ${c.unitTitle || 'Core Module'}`,
+            difficulty: c.difficulty === 'Hard' ? 4 : c.difficulty === 'Easy' ? 2 : 3,
+            prerequisiteIds: (c.prerequisites || []).map((p: any) => p.id),
+            masteryThreshold: 75,
+            pedagogicalIntent: c.simpleExplanation,
+            keyTakeaway: c.detailedExplanation,
+            keyTakeaways: (c.keyPoints && c.keyPoints.length > 0)
+              ? c.keyPoints
+              : (c.keyTakeaways && c.keyTakeaways.length > 0)
+              ? c.keyTakeaways
+              : [
+                  `Grounded in ${c.subjectName || 'engineering'} syllabus standards.`,
+                  c.simpleExplanation || 'Core foundational principles and invariants.',
+                  'Directly tested in university examinations and system design.',
+                ],
+            commonMisconceptions: (c.commonMistakes || []).map((m: any) => ({
+              name: m.trap || 'Conceptual trap',
+              description: m.trap,
+              correction: m.correction,
+              exampleIncorrect: m.trap,
+              exampleCorrect: m.correction,
+            })),
+          } as any);
 
-    // Fetch user session, knowledge state, and active misconceptions
-    Promise.all([
-      fetch(`/api/knowledge`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`/api/misconceptions?status=ACTIVE`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`/api/youtube/search?q=${encodeURIComponent(foundConcept.title)}&conceptId=${conceptId}`).then(
-        (r) => (r.ok ? r.json() : null)
-      ),
-    ])
-      .then(([kData, mData, vData]) => {
-        if (kData && kData.knowledge) {
-          const kRec = kData.knowledge.find((k: any) => k.conceptId === conceptId);
-          setKnowledgeState(kRec || null);
-        }
-        if (mData && mData.misconceptions) {
-          const mRec = mData.misconceptions.find((m: any) => m.conceptId === conceptId);
-          setActiveMisconception(mRec || null);
-        }
-        if (vData && vData.videos) {
-          setVideos(vData.videos);
+          if (c.quickAssessment) {
+            setQuestions([c.quickAssessment]);
+          }
+          if (c.recommendedVideos && c.recommendedVideos.length > 0) {
+            setVideos(c.recommendedVideos);
+          }
+        } else {
+          const foundConcept = CONCEPTS.find((c) => c.id === conceptId);
+          if (foundConcept) {
+            setConcept(foundConcept);
+            const matchedQuestions = DIAGNOSTIC_QUESTIONS.filter((q) => q.conceptId === conceptId);
+            setQuestions(matchedQuestions.length > 0 ? matchedQuestions : [DIAGNOSTIC_QUESTIONS[0]]);
+          } else {
+            setConcept({
+              id: conceptId,
+              title: conceptId.replace(/[-_]+/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+              description: `Authoritative study module for ${conceptId}.`,
+              trackName: 'Engineering Sciences',
+              module: 'Core Module',
+              difficulty: 3,
+              prerequisiteIds: [],
+              masteryThreshold: 75,
+              keyTakeaways: [
+                `Foundational principles of ${conceptId.replace(/[-_]+/g, ' ')}`,
+                'Analyzed rigorously according to university examination guidelines',
+                'Pre-requisite for downstream practical system implementation',
+              ],
+              commonMisconceptions: [],
+            } as any);
+          }
         }
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        console.warn('Concept API load error:', err);
+        const foundConcept = CONCEPTS.find((c) => c.id === conceptId);
+        if (foundConcept) {
+          setConcept(foundConcept);
+        } else {
+          setConcept({
+            id: conceptId,
+            title: conceptId.replace(/[-_]+/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+            description: `Authoritative study module for ${conceptId}.`,
+            trackName: 'Engineering Sciences',
+            module: 'Core Module',
+            difficulty: 3,
+            prerequisiteIds: [],
+            masteryThreshold: 75,
+            keyTakeaways: [
+              `Foundational principles of ${conceptId.replace(/[-_]+/g, ' ')}`,
+              'Analyzed rigorously according to university examination guidelines',
+              'Pre-requisite for downstream practical system implementation',
+            ],
+            commonMisconceptions: [],
+          } as any);
+        }
+      })
+      .finally(() => {
+        Promise.all([
+          fetch(`/api/knowledge`).then((r) => (r.ok ? r.json() : null)),
+          fetch(`/api/misconceptions?status=ACTIVE`).then((r) => (r.ok ? r.json() : null)),
+        ])
+          .then(([kData, mData]) => {
+            if (kData && kData.knowledge) {
+              const kRec = kData.knowledge.find((k: any) => k.conceptId === conceptId);
+              setKnowledgeState(kRec || null);
+            }
+            if (mData && mData.misconceptions) {
+              const mRec = mData.misconceptions.find((m: any) => m.conceptId === conceptId);
+              setActiveMisconception(mRec || null);
+            }
+          })
+          .finally(() => setLoading(false));
+      });
   }, [conceptId]);
 
   const handleAssessmentSubmit = async () => {
@@ -256,7 +332,7 @@ export default function ConceptLearnPage() {
             First-Principles Takeaways
           </span>
           <ul className="space-y-1.5 text-xs text-slate-700">
-            {concept.keyTakeaways.map((takeaway, idx) => (
+            {(concept.keyTakeaways || []).map((takeaway, idx) => (
               <li key={idx} className="flex items-start gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" />
                 <span>{takeaway}</span>
@@ -393,30 +469,111 @@ result = square(5)
 
         {/* AI Analysis Feedback */}
         {aiAnalysis && (
-          <div className="p-4 rounded-xl border border-secondary/30 bg-indigo-50/40 space-y-3 mt-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-secondary uppercase tracking-wider">
-                Pedagogical Assessment:
-              </span>
-              <span className="text-xs font-bold text-main">
-                {aiAnalysis.misconceptionIdentified}
-              </span>
+          <div className="p-5 rounded-xl border border-secondary/30 bg-indigo-50/40 space-y-4 mt-4 animate-fade">
+            <div className="flex items-center justify-between border-b border-secondary/20 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-secondary uppercase tracking-wider bg-secondary/10 px-2 py-0.5 rounded">
+                  Pedagogical Response
+                </span>
+                <span className="text-xs font-bold text-main">
+                  {aiAnalysis.misconceptionIdentified}
+                </span>
+              </div>
+              {aiAnalysis.codeSnippet && (
+                <span className="text-[10px] font-mono font-bold uppercase bg-slate-900 text-white px-2 py-0.5 rounded">
+                  {aiAnalysis.codeSnippet.language}
+                </span>
+              )}
             </div>
-            <p className="text-xs text-main leading-relaxed">{aiAnalysis.explanation}</p>
-            {aiAnalysis.minimalExample && (
+
+            <div className="text-xs text-main leading-relaxed whitespace-pre-line font-medium">
+              {aiAnalysis.explanation}
+            </div>
+
+            {/* Code Snippet if present (e.g. for Simple Calculator or algorithm queries) */}
+            {aiAnalysis.codeSnippet && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-subtle font-semibold">
+                  <span>Executable Implementation</span>
+                  <span className="text-[11px] text-primary">{aiAnalysis.codeSnippet.language.toUpperCase()}</span>
+                </div>
+                <pre className="p-4 bg-slate-900 text-slate-100 rounded-xl font-mono text-xs overflow-x-auto leading-relaxed border border-slate-800">
+                  {aiAnalysis.codeSnippet.code}
+                </pre>
+                {aiAnalysis.codeSnippet.explanation && (
+                  <p className="text-[11px] text-slate-600 italic">
+                    💡 {aiAnalysis.codeSnippet.explanation}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Step-by-Step execution breakdown */}
+            {aiAnalysis.stepByStep && aiAnalysis.stepByStep.length > 0 && (
+              <div className="p-3 bg-white rounded-lg border border-border space-y-1.5">
+                <span className="text-[11px] font-bold text-main uppercase tracking-wider block">
+                  Step-by-Step Mechanics:
+                </span>
+                <ul className="space-y-1 text-xs text-slate-700">
+                  {aiAnalysis.stepByStep.map((step: string, sIdx: number) => (
+                    <li key={sIdx} className="flex items-start gap-2">
+                      <span className="text-primary font-bold">•</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Minimal Example error vs correction */}
+            {aiAnalysis.minimalExample && !aiAnalysis.codeSnippet && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] font-mono">
-                <div className="p-2.5 bg-white rounded border border-red-200 text-red-900">
-                  <span className="block font-bold mb-1">Observed Error:</span>
+                <div className="p-3 bg-white rounded-lg border border-red-200 text-red-900">
+                  <span className="block font-bold mb-1 text-danger">Observed Mental Model Error:</span>
                   <pre className="whitespace-pre-wrap">{aiAnalysis.minimalExample.incorrect}</pre>
                 </div>
-                <div className="p-2.5 bg-white rounded border border-emerald-200 text-emerald-900">
-                  <span className="block font-bold mb-1">Target Correction:</span>
+                <div className="p-3 bg-white rounded-lg border border-emerald-200 text-emerald-900">
+                  <span className="block font-bold mb-1 text-success">Target Systematic Correction:</span>
                   <pre className="whitespace-pre-wrap">{aiAnalysis.minimalExample.correct}</pre>
                 </div>
               </div>
             )}
-            <div className="text-[11px] text-subtle font-medium border-t border-secondary/20 pt-2">
-              Calibration Note: {aiAnalysis.confidenceAssessment}
+
+            {/* Common Mistake & Traps */}
+            {aiAnalysis.commonMistake && (
+              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-lg text-xs space-y-1">
+                <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Frequent Trap / Misconception:</span>
+                </span>
+                <p className="text-amber-800">{aiAnalysis.commonMistake.trap}</p>
+                <p className="text-emerald-800 font-semibold pt-1">
+                  Fix: {aiAnalysis.commonMistake.correction}
+                </p>
+              </div>
+            )}
+
+            {/* Quick Check Question */}
+            {aiAnalysis.quickCheck && (
+              <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-lg text-xs space-y-1">
+                <span className="font-bold text-blue-900 block">
+                  Quick Check Question:
+                </span>
+                <p className="text-slate-800">{aiAnalysis.quickCheck.question}</p>
+                <details className="pt-1 text-[11px] text-primary cursor-pointer">
+                  <summary className="font-semibold hover:underline">Reveal Hint & Answer</summary>
+                  <div className="mt-1.5 p-2 bg-white rounded border border-blue-100 text-slate-700">
+                    <span className="font-semibold">Hint:</span> {aiAnalysis.quickCheck.hint}
+                    <br />
+                    <span className="font-semibold text-success">Answer:</span> {aiAnalysis.quickCheck.answer}
+                  </div>
+                </details>
+              </div>
+            )}
+
+            <div className="text-[11px] text-subtle font-medium border-t border-secondary/20 pt-2 flex items-center justify-between">
+              <span>Calibration / Source: {aiAnalysis.confidenceAssessment}</span>
+              <span className="text-secondary font-semibold">Nexus AI Tutor</span>
             </div>
           </div>
         )}

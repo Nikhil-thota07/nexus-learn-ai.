@@ -17,7 +17,12 @@ import { CONCEPTS, DIAGNOSTIC_QUESTIONS } from '@/data/curriculum';
 export default function JeePrepPage() {
   const [selectedSubject, setSelectedSubject] = useState<'physics' | 'chemistry' | 'maths'>('physics');
 
-  const jeeConcepts = CONCEPTS.filter((c) => c.track === 'jee-physics');
+  const trackMap = {
+    physics: 'jee-physics',
+    chemistry: 'jee-chemistry',
+    maths: 'jee-math',
+  };
+  const jeeConcepts = CONCEPTS.filter((c) => c.track === trackMap[selectedSubject]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
